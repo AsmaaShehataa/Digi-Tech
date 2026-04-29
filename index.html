@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Professional software engineering services for web, mobile, and digital transformation initiatives."
+    />
+    <title>Global Software Engineering Services</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content" data-i18n="skipToContent">Skip to content</a>
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <a class="brand" href="#" aria-label="Home">Digi-Tech</a>
+        <nav aria-label="Primary navigation">
+          <ul class="nav-list">
+            <li><a href="#services" data-i18n="navServices">Services</a></li>
+            <li><a href="#ai-experience" data-i18n="navAi">AI Experience</a></li>
+            <li><a href="#global" data-i18n="navGlobal">Global</a></li>
+            <li><a href="#contact" data-i18n="navContact">Contact</a></li>
+          </ul>
+        </nav>
+        <label class="language-label" for="language-select">
+          <span class="visually-hidden" data-i18n="languageLabel">Language</span>
+          <select id="language-select" aria-label="Select language">
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="ar">العربية</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="hero container section">
+        <div class="hero-grid">
+          <div>
+            <p class="eyebrow" data-i18n="heroEyebrow">Software Engineer & Digital Partner</p>
+            <h1 data-i18n="heroTitle">
+              Designing intelligent web and mobile products for ambitious businesses.
+            </h1>
+            <p class="hero-copy" data-i18n="heroCopy">
+              I help organizations build resilient software platforms, modernize operations, and scale
+              digital experiences with a minimalist, AI-enhanced approach.
+            </p>
+            <div class="hero-actions">
+              <a class="button primary" href="#contact" data-i18n="heroPrimaryCta">Book a discovery call</a>
+              <a class="button ghost" href="#services" data-i18n="heroSecondaryCta">Explore services</a>
+            </div>
+          </div>
+          <aside class="hero-card" aria-label="Service highlights">
+            <h2 data-i18n="highlightsTitle">What you gain</h2>
+            <ul>
+              <li data-i18n="highlight1">End-to-end product strategy and delivery</li>
+              <li data-i18n="highlight2">AI-ready architecture and performance-first engineering</li>
+              <li data-i18n="highlight3">Global accessibility, localization, and compliance support</li>
+            </ul>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section muted" id="services">
+        <div class="container">
+          <div class="section-heading">
+            <p class="eyebrow" data-i18n="servicesEyebrow">Services</p>
+            <h2 data-i18n="servicesTitle">Modern engineering services designed for growth.</h2>
+          </div>
+          <div class="cards-grid">
+            <article class="card">
+              <h3 data-i18n="service1Title">Web application engineering</h3>
+              <p data-i18n="service1Copy">
+                Build secure, scalable web platforms with intuitive UX and cloud-native architecture.
+              </p>
+            </article>
+            <article class="card">
+              <h3 data-i18n="service2Title">Mobile app development</h3>
+              <p data-i18n="service2Copy">
+                Launch polished iOS and Android experiences with shared components and rapid delivery.
+              </p>
+            </article>
+            <article class="card">
+              <h3 data-i18n="service3Title">Digital transformation</h3>
+              <p data-i18n="service3Copy">
+                Modernize legacy systems, automate workflows, and unlock measurable business outcomes.
+              </p>
+            </article>
+            <article class="card">
+              <h3 data-i18n="service4Title">AI product integration</h3>
+              <p data-i18n="service4Copy">
+                Introduce intelligent assistants, recommendations, and analytics into core user journeys.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="ai-experience">
+        <div class="container">
+          <div class="section-heading">
+            <p class="eyebrow" data-i18n="aiEyebrow">AI-driven UX</p>
+            <h2 data-i18n="aiTitle">Get an instant, AI-style service recommendation.</h2>
+            <p data-i18n="aiCopy">
+              Tell us your priorities and the assistant will suggest the best engagement model.
+            </p>
+          </div>
+          <form class="ai-form" id="ai-form">
+            <div class="field">
+              <label for="goal" data-i18n="formGoalLabel">Primary goal</label>
+              <select id="goal" required>
+                <option value="launch" data-i18n="goalLaunch">Launch a new product</option>
+                <option value="scale" data-i18n="goalScale">Scale existing software</option>
+                <option value="modernize" data-i18n="goalModernize">Modernize legacy systems</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="platform" data-i18n="formPlatformLabel">Primary platform</label>
+              <select id="platform" required>
+                <option value="web" data-i18n="platformWeb">Web</option>
+                <option value="mobile" data-i18n="platformMobile">Mobile</option>
+                <option value="multi" data-i18n="platformMulti">Web + Mobile</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="timeline" data-i18n="formTimelineLabel">Delivery expectation</label>
+              <select id="timeline" required>
+                <option value="fast" data-i18n="timelineFast">Fast MVP</option>
+                <option value="balanced" data-i18n="timelineBalanced">Balanced roadmap</option>
+                <option value="phased" data-i18n="timelinePhased">Phased enterprise rollout</option>
+              </select>
+            </div>
+            <button class="button primary full" type="submit" data-i18n="formButton">
+              Generate recommendation
+            </button>
+          </form>
+          <section class="ai-result" id="ai-result" aria-live="polite">
+            <h3 data-i18n="aiResultTitle">Recommended pathway</h3>
+            <p id="result-text" data-i18n="aiResultDefault">
+              Complete the form to see your personalized recommendation.
+            </p>
+          </section>
+        </div>
+      </section>
+
+      <section class="section muted" id="global">
+        <div class="container">
+          <div class="section-heading">
+            <p class="eyebrow" data-i18n="globalEyebrow">Global readiness</p>
+            <h2 data-i18n="globalTitle">Built for international audiences and reliable hosting.</h2>
+          </div>
+          <div class="cards-grid">
+            <article class="card">
+              <h3 data-i18n="global1Title">Multilingual delivery</h3>
+              <p data-i18n="global1Copy">
+                Native language switching, RTL support, and scalable translation architecture.
+              </p>
+            </article>
+            <article class="card">
+              <h3 data-i18n="global2Title">Accessibility first</h3>
+              <p data-i18n="global2Copy">
+                Keyboard navigation, semantic structure, and inclusive design aligned with WCAG standards.
+              </p>
+            </article>
+            <article class="card">
+              <h3 data-i18n="global3Title">Reliable hosting stack</h3>
+              <p data-i18n="global3Copy">
+                Deploy globally on CDN-backed platforms with caching, SSL, and continuous delivery.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="contact">
+        <div class="container contact-wrap">
+          <div>
+            <p class="eyebrow" data-i18n="contactEyebrow">Contact</p>
+            <h2 data-i18n="contactTitle">Let’s build your next digital product.</h2>
+            <p data-i18n="contactCopy">
+              Share your goals and I will provide a focused roadmap with technical and business priorities.
+            </p>
+          </div>
+          <a class="button primary" href="mailto:hello@digi-tech.example" data-i18n="contactButton"
+            >Start the conversation</a
+          >
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-wrap">
+        <p data-i18n="footerCopy">© <span id="year"></span> Digi-Tech. Built for global impact.</p>
+      </div>
+    </footer>
+    <script src="script.js"></script>
+  </body>
+</html>
