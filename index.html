@@ -24,6 +24,7 @@
         <nav aria-label="Primary navigation">
           <ul class="nav-list">
             <li><a href="#services" data-i18n="navServices">Services</a></li>
+            <li><a href="#showcase" data-i18n="navShowcase">Showcase</a></li>
             <li><a href="#ai-experience" data-i18n="navAi">AI Experience</a></li>
             <li><a href="#global" data-i18n="navGlobal">Global</a></li>
             <li><a href="#contact" data-i18n="navContact">Contact</a></li>
@@ -44,76 +45,220 @@
     <main id="main-content">
       <section class="hero container section">
         <div class="hero-grid">
-          <div>
+          <div class="hero-content reveal">
             <p class="eyebrow" data-i18n="heroEyebrow">Software Engineer & Digital Partner</p>
-            <h1 data-i18n="heroTitle">
-              Designing intelligent web and mobile products for ambitious businesses.
-            </h1>
+            <h1 data-i18n="heroTitle">Digital products that feel simple, fast, and intelligent.</h1>
             <p class="hero-copy" data-i18n="heroCopy">
-              I help organizations build resilient software platforms, modernize operations, and scale
-              digital experiences with a minimalist, AI-enhanced approach.
+              I design and build modern web and mobile experiences that improve business workflows and delight users.
             </p>
             <div class="hero-actions">
-              <a class="button primary" href="#contact" data-i18n="heroPrimaryCta">Book a discovery call</a>
-              <a class="button ghost" href="#services" data-i18n="heroSecondaryCta">Explore services</a>
+              <a class="button primary" href="#contact" data-i18n="heroPrimaryCta">Start your project</a>
+              <a class="button ghost" href="#showcase" data-i18n="heroSecondaryCta">View recent work</a>
             </div>
-          </div>
-          <aside class="hero-card" aria-label="Service highlights">
-            <h2 data-i18n="highlightsTitle">What you gain</h2>
-            <ul>
-              <li data-i18n="highlight1">End-to-end product strategy and delivery</li>
-              <li data-i18n="highlight2">AI-ready architecture and performance-first engineering</li>
-              <li data-i18n="highlight3">Global accessibility, localization, and compliance support</li>
+            <ul class="quick-points">
+              <li data-i18n="heroPoint1">Fast delivery with clean architecture</li>
+              <li data-i18n="heroPoint2">Interactive interfaces users enjoy</li>
+              <li data-i18n="heroPoint3">Global-ready localization and scale</li>
             </ul>
+          </div>
+
+          <aside class="hero-visual reveal" aria-label="Featured work visuals">
+            <figure class="hero-photo-large">
+              <img
+                src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1400&q=80"
+                alt="Engineering team collaborating over product interface"
+              />
+            </figure>
+            <div class="hero-photo-stack">
+              <img
+                src="https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=900&q=80"
+                alt="Developer writing code on a laptop"
+                loading="lazy"
+              />
+              <img
+                src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=900&q=80"
+                alt="Mobile product planning session"
+                loading="lazy"
+              />
+            </div>
+            <div class="floating-badge" data-i18n="floatingBadge">AI-enhanced UX</div>
           </aside>
+        </div>
+      </section>
+
+      <section class="section stats-section">
+        <div class="container">
+          <h2 class="stats-heading reveal" data-i18n="statsTitle">Trusted delivery, measurable outcomes.</h2>
+          <div class="stats-grid">
+            <article class="stat-card reveal">
+              <p class="stat-value" data-stat-target="45" data-stat-suffix="+">0</p>
+              <p class="stat-label" data-i18n="stat1Label">Products launched</p>
+            </article>
+            <article class="stat-card reveal">
+              <p class="stat-value" data-stat-target="98" data-stat-suffix="%">0</p>
+              <p class="stat-label" data-i18n="stat2Label">Client satisfaction</p>
+            </article>
+            <article class="stat-card reveal">
+              <p class="stat-value" data-stat-target="12" data-stat-suffix=" countries">0</p>
+              <p class="stat-label" data-i18n="stat3Label">Global delivery reach</p>
+            </article>
+          </div>
         </div>
       </section>
 
       <section class="section muted" id="services">
         <div class="container">
-          <div class="section-heading">
+          <div class="section-heading reveal">
             <p class="eyebrow" data-i18n="servicesEyebrow">Services</p>
-            <h2 data-i18n="servicesTitle">Modern engineering services designed for growth.</h2>
+            <h2 data-i18n="servicesTitle">Interactive solutions for every stage of product growth.</h2>
+            <p data-i18n="servicesCopy">Choose a category to quickly explore what fits your goals.</p>
           </div>
-          <div class="cards-grid">
-            <article class="card">
-              <h3 data-i18n="service1Title">Web application engineering</h3>
-              <p data-i18n="service1Copy">
-                Build secure, scalable web platforms with intuitive UX and cloud-native architecture.
-              </p>
+
+          <div class="service-filters" aria-label="Service filters">
+            <button class="filter-button active" type="button" data-filter="all" data-i18n="filterAll">All</button>
+            <button class="filter-button" type="button" data-filter="web" data-i18n="filterWeb">Web</button>
+            <button class="filter-button" type="button" data-filter="mobile" data-i18n="filterMobile">Mobile</button>
+            <button
+              class="filter-button"
+              type="button"
+              data-filter="transformation"
+              data-i18n="filterTransformation"
+            >
+              Transformation
+            </button>
+            <button class="filter-button" type="button" data-filter="ai" data-i18n="filterAi">AI</button>
+          </div>
+
+          <div class="service-grid">
+            <article class="service-card reveal" data-category="web">
+              <img
+                src="https://images.unsplash.com/photo-1487017159836-4e23ece2e4cf?auto=format&fit=crop&w=1000&q=80"
+                alt="Web platform interface on desktop display"
+                loading="lazy"
+              />
+              <div class="service-card-body">
+                <h3 data-i18n="service1Title">Web application engineering</h3>
+                <p data-i18n="service1Copy">High-performance, scalable platforms with intuitive user journeys.</p>
+              </div>
             </article>
-            <article class="card">
-              <h3 data-i18n="service2Title">Mobile app development</h3>
-              <p data-i18n="service2Copy">
-                Launch polished iOS and Android experiences with shared components and rapid delivery.
-              </p>
+
+            <article class="service-card reveal" data-category="mobile">
+              <img
+                src="https://images.unsplash.com/photo-1551650975-87deedd944c3?auto=format&fit=crop&w=1000&q=80"
+                alt="Mobile app interface displayed on a smartphone"
+                loading="lazy"
+              />
+              <div class="service-card-body">
+                <h3 data-i18n="service2Title">Mobile app development</h3>
+                <p data-i18n="service2Copy">Elegant iOS and Android apps built for engagement and retention.</p>
+              </div>
             </article>
-            <article class="card">
-              <h3 data-i18n="service3Title">Digital transformation</h3>
-              <p data-i18n="service3Copy">
-                Modernize legacy systems, automate workflows, and unlock measurable business outcomes.
-              </p>
+
+            <article class="service-card reveal" data-category="transformation">
+              <img
+                src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1000&q=80"
+                alt="Digital roadmap notes and strategic planning workspace"
+                loading="lazy"
+              />
+              <div class="service-card-body">
+                <h3 data-i18n="service3Title">Digital transformation</h3>
+                <p data-i18n="service3Copy">Streamline operations, modernize legacy systems, and reduce complexity.</p>
+              </div>
             </article>
-            <article class="card">
-              <h3 data-i18n="service4Title">AI product integration</h3>
-              <p data-i18n="service4Copy">
-                Introduce intelligent assistants, recommendations, and analytics into core user journeys.
-              </p>
+
+            <article class="service-card reveal" data-category="ai">
+              <img
+                src="https://images.unsplash.com/photo-1677442135136-760c813a743d?auto=format&fit=crop&w=1000&q=80"
+                alt="AI visualization on a modern development setup"
+                loading="lazy"
+              />
+              <div class="service-card-body">
+                <h3 data-i18n="service4Title">AI product integration</h3>
+                <p data-i18n="service4Copy">Deploy assistants and smart workflows to improve productivity and UX.</p>
+              </div>
             </article>
           </div>
         </div>
       </section>
 
-      <section class="section" id="ai-experience">
+      <section class="section" id="showcase">
         <div class="container">
-          <div class="section-heading">
+          <div class="section-heading reveal">
+            <p class="eyebrow" data-i18n="showcaseEyebrow">Showcase</p>
+            <h2 data-i18n="showcaseTitle">Clickable project snapshots with motion-first presentation.</h2>
+            <p data-i18n="showcaseCopy">Tap any photo to preview it and explore solution themes quickly.</p>
+          </div>
+
+          <div class="gallery-grid">
+            <button
+              type="button"
+              class="gallery-item reveal"
+              data-full="https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1400&q=80"
+              data-caption-key="showcase1Title"
+            >
+              <img
+                src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80"
+                alt="Analytics dashboard and code editor on a workstation"
+                loading="lazy"
+              />
+              <span data-i18n="showcase1Title">Fintech analytics platform</span>
+            </button>
+
+            <button
+              type="button"
+              class="gallery-item reveal"
+              data-full="https://images.unsplash.com/photo-1581276879432-15a34732f4f7?auto=format&fit=crop&w=1400&q=80"
+              data-caption-key="showcase2Title"
+            >
+              <img
+                src="https://images.unsplash.com/photo-1581276879432-15a34732f4f7?auto=format&fit=crop&w=900&q=80"
+                alt="Developer team designing app features on whiteboard"
+                loading="lazy"
+              />
+              <span data-i18n="showcase2Title">Enterprise workflow redesign</span>
+            </button>
+
+            <button
+              type="button"
+              class="gallery-item reveal"
+              data-full="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1400&q=80"
+              data-caption-key="showcase3Title"
+            >
+              <img
+                src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=900&q=80"
+                alt="Mobile commerce app in use at a cafe"
+                loading="lazy"
+              />
+              <span data-i18n="showcase3Title">Mobile commerce experience</span>
+            </button>
+
+            <button
+              type="button"
+              class="gallery-item reveal"
+              data-full="https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1400&q=80"
+              data-caption-key="showcase4Title"
+            >
+              <img
+                src="https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=900&q=80"
+                alt="Product team reviewing UI prototype on tablet"
+                loading="lazy"
+              />
+              <span data-i18n="showcase4Title">AI-guided onboarding flow</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="section muted" id="ai-experience">
+        <div class="container">
+          <div class="section-heading reveal">
             <p class="eyebrow" data-i18n="aiEyebrow">AI-driven UX</p>
             <h2 data-i18n="aiTitle">Get an instant, AI-style service recommendation.</h2>
             <p data-i18n="aiCopy">
               Tell us your priorities and the assistant will suggest the best engagement model.
             </p>
           </div>
-          <form class="ai-form" id="ai-form">
+          <form class="ai-form reveal" id="ai-form">
             <div class="field">
               <label for="goal" data-i18n="formGoalLabel">Primary goal</label>
               <select id="goal" required>
@@ -142,7 +287,7 @@
               Generate recommendation
             </button>
           </form>
-          <section class="ai-result" id="ai-result" aria-live="polite">
+          <section class="ai-result reveal" id="ai-result" aria-live="polite">
             <h3 data-i18n="aiResultTitle">Recommended pathway</h3>
             <p id="result-text" data-i18n="aiResultDefault">
               Complete the form to see your personalized recommendation.
@@ -151,26 +296,26 @@
         </div>
       </section>
 
-      <section class="section muted" id="global">
+      <section class="section" id="global">
         <div class="container">
-          <div class="section-heading">
+          <div class="section-heading reveal">
             <p class="eyebrow" data-i18n="globalEyebrow">Global readiness</p>
             <h2 data-i18n="globalTitle">Built for international audiences and reliable hosting.</h2>
           </div>
           <div class="cards-grid">
-            <article class="card">
+            <article class="card reveal">
               <h3 data-i18n="global1Title">Multilingual delivery</h3>
               <p data-i18n="global1Copy">
                 Native language switching, RTL support, and scalable translation architecture.
               </p>
             </article>
-            <article class="card">
+            <article class="card reveal">
               <h3 data-i18n="global2Title">Accessibility first</h3>
               <p data-i18n="global2Copy">
                 Keyboard navigation, semantic structure, and inclusive design aligned with WCAG standards.
               </p>
             </article>
-            <article class="card">
+            <article class="card reveal">
               <h3 data-i18n="global3Title">Reliable hosting stack</h3>
               <p data-i18n="global3Copy">
                 Deploy globally on CDN-backed platforms with caching, SSL, and continuous delivery.
@@ -180,8 +325,8 @@
         </div>
       </section>
 
-      <section class="section" id="contact">
-        <div class="container contact-wrap">
+      <section class="section contact-section" id="contact">
+        <div class="container contact-wrap reveal">
           <div>
             <p class="eyebrow" data-i18n="contactEyebrow">Contact</p>
             <h2 data-i18n="contactTitle">Let’s build your next digital product.</h2>
@@ -189,12 +334,22 @@
               Share your goals and I will provide a focused roadmap with technical and business priorities.
             </p>
           </div>
-          <a class="button primary" href="mailto:hello@digi-tech.example" data-i18n="contactButton"
-            >Start the conversation</a
-          >
+          <a class="button primary" href="mailto:hello@digi-tech.example" data-i18n="contactButton">
+            Start the conversation
+          </a>
         </div>
       </section>
     </main>
+
+    <div class="gallery-modal" id="gallery-modal" hidden>
+      <div class="gallery-modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-caption">
+        <button id="modal-close" class="modal-close" type="button" data-i18n="closePreview" aria-label="Close preview">
+          Close preview
+        </button>
+        <img id="modal-image" src="" alt="" />
+        <p id="modal-caption"></p>
+      </div>
+    </div>
 
     <footer class="site-footer">
       <div class="container footer-wrap">
