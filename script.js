@@ -2,30 +2,49 @@ const translations = {
   en: {
     skipToContent: "Skip to content",
     navServices: "Services",
+    navShowcase: "Showcase",
     navAi: "AI Experience",
     navGlobal: "Global",
     navContact: "Contact",
     languageLabel: "Language",
     heroEyebrow: "Software Engineer & Digital Partner",
-    heroTitle: "Designing intelligent web and mobile products for ambitious businesses.",
+    heroTitle: "Digital products that feel simple, fast, and intelligent.",
     heroCopy:
-      "I help organizations build resilient software platforms, modernize operations, and scale digital experiences with a minimalist, AI-enhanced approach.",
-    heroPrimaryCta: "Book a discovery call",
-    heroSecondaryCta: "Explore services",
-    highlightsTitle: "What you gain",
-    highlight1: "End-to-end product strategy and delivery",
-    highlight2: "AI-ready architecture and performance-first engineering",
-    highlight3: "Global accessibility, localization, and compliance support",
+      "I design and build modern web and mobile experiences that improve business workflows and delight users.",
+    heroPrimaryCta: "Start your project",
+    heroSecondaryCta: "View recent work",
+    heroPoint1: "Fast delivery with clean architecture",
+    heroPoint2: "Interactive interfaces users enjoy",
+    heroPoint3: "Global-ready localization and scale",
+    floatingBadge: "AI-enhanced UX",
+    statsTitle: "Trusted delivery, measurable outcomes.",
+    stat1Label: "Products launched",
+    stat2Label: "Client satisfaction",
+    stat3Label: "Global delivery reach",
     servicesEyebrow: "Services",
-    servicesTitle: "Modern engineering services designed for growth.",
+    servicesTitle: "Interactive solutions for every stage of product growth.",
+    servicesCopy: "Choose a category to quickly explore what fits your goals.",
+    filterAll: "All",
+    filterWeb: "Web",
+    filterMobile: "Mobile",
+    filterTransformation: "Transformation",
+    filterAi: "AI",
     service1Title: "Web application engineering",
-    service1Copy: "Build secure, scalable web platforms with intuitive UX and cloud-native architecture.",
+    service1Copy: "High-performance, scalable platforms with intuitive user journeys.",
     service2Title: "Mobile app development",
-    service2Copy: "Launch polished iOS and Android experiences with shared components and rapid delivery.",
+    service2Copy: "Elegant iOS and Android apps built for engagement and retention.",
     service3Title: "Digital transformation",
-    service3Copy: "Modernize legacy systems, automate workflows, and unlock measurable business outcomes.",
+    service3Copy: "Streamline operations, modernize legacy systems, and reduce complexity.",
     service4Title: "AI product integration",
-    service4Copy: "Introduce intelligent assistants, recommendations, and analytics into core user journeys.",
+    service4Copy: "Deploy assistants and smart workflows to improve productivity and UX.",
+    showcaseEyebrow: "Showcase",
+    showcaseTitle: "Clickable project snapshots with motion-first presentation.",
+    showcaseCopy: "Tap any photo to preview it and explore solution themes quickly.",
+    showcase1Title: "Fintech analytics platform",
+    showcase2Title: "Enterprise workflow redesign",
+    showcase3Title: "Mobile commerce experience",
+    showcase4Title: "AI-guided onboarding flow",
+    closePreview: "Close preview",
     aiEyebrow: "AI-driven UX",
     aiTitle: "Get an instant, AI-style service recommendation.",
     aiCopy: "Tell us your priorities and the assistant will suggest the best engagement model.",
@@ -54,55 +73,69 @@ const translations = {
     global3Copy: "Deploy globally on CDN-backed platforms with caching, SSL, and continuous delivery.",
     contactEyebrow: "Contact",
     contactTitle: "Let's build your next digital product.",
-    contactCopy:
-      "Share your goals and I will provide a focused roadmap with technical and business priorities.",
+    contactCopy: "Share your goals and I will provide a focused roadmap with technical and business priorities.",
     contactButton: "Start the conversation",
     footerCopy: "© <span id=\"year\"></span> Digi-Tech. Built for global impact.",
     recommendationLaunchWebFast:
-      "Recommendation: Start with a discovery sprint and a fast web MVP, then expand to automation and analytics after validation.",
+      "Recommendation: Start with a discovery sprint and a fast web MVP, then scale based on user feedback.",
     recommendationLaunchMultiBalanced:
-      "Recommendation: Use a unified product roadmap with shared design systems for web and mobile, delivered in balanced milestones.",
+      "Recommendation: Use a shared design system and unified roadmap for web + mobile delivery in parallel.",
     recommendationScaleMobilePhased:
-      "Recommendation: Prioritize mobile performance optimization, observability, and phased feature rollouts for reliable scaling.",
+      "Recommendation: Optimize mobile performance first, then roll out improvements in measurable phases.",
     recommendationModernize:
-      "Recommendation: Run a transformation assessment, modernize core services incrementally, and integrate AI copilots into key workflows.",
+      "Recommendation: Begin with system audit, then modernize high-impact services and introduce AI copilots.",
     recommendationDefault:
-      "Recommendation: Combine strategy, UX, and engineering in a focused engagement to deliver measurable outcomes quickly."
+      "Recommendation: Combine strategy, UX, and engineering in a focused engagement for rapid measurable outcomes."
   },
   es: {
     skipToContent: "Saltar al contenido",
     navServices: "Servicios",
+    navShowcase: "Portafolio",
     navAi: "Experiencia IA",
     navGlobal: "Global",
     navContact: "Contacto",
     languageLabel: "Idioma",
     heroEyebrow: "Ingeniero de Software y Socio Digital",
-    heroTitle: "Diseñando productos web y móviles inteligentes para empresas ambiciosas.",
+    heroTitle: "Productos digitales simples, rápidos e inteligentes.",
     heroCopy:
-      "Ayudo a las organizaciones a construir plataformas de software resilientes, modernizar operaciones y escalar experiencias digitales con un enfoque minimalista potenciado por IA.",
-    heroPrimaryCta: "Reservar una llamada",
-    heroSecondaryCta: "Explorar servicios",
-    highlightsTitle: "Lo que obtienes",
-    highlight1: "Estrategia y entrega integral de producto",
-    highlight2: "Arquitectura preparada para IA e ingeniería centrada en rendimiento",
-    highlight3: "Accesibilidad global, localización y soporte de cumplimiento",
+      "Diseño y desarrollo experiencias web y móviles modernas que mejoran procesos de negocio y encantan a los usuarios.",
+    heroPrimaryCta: "Inicia tu proyecto",
+    heroSecondaryCta: "Ver trabajos recientes",
+    heroPoint1: "Entrega rápida con arquitectura limpia",
+    heroPoint2: "Interfaces interactivas que gustan",
+    heroPoint3: "Escalabilidad y localización global",
+    floatingBadge: "UX mejorada con IA",
+    statsTitle: "Entrega confiable y resultados medibles.",
+    stat1Label: "Productos lanzados",
+    stat2Label: "Satisfacción del cliente",
+    stat3Label: "Alcance global",
     servicesEyebrow: "Servicios",
-    servicesTitle: "Servicios de ingeniería modernos diseñados para crecer.",
+    servicesTitle: "Soluciones interactivas para cada etapa del crecimiento.",
+    servicesCopy: "Elige una categoría para explorar rápidamente lo que encaja con tus objetivos.",
+    filterAll: "Todo",
+    filterWeb: "Web",
+    filterMobile: "Móvil",
+    filterTransformation: "Transformación",
+    filterAi: "IA",
     service1Title: "Ingeniería de aplicaciones web",
-    service1Copy:
-      "Construye plataformas web seguras y escalables con UX intuitiva y arquitectura cloud-native.",
+    service1Copy: "Plataformas de alto rendimiento y escalables con recorridos de usuario intuitivos.",
     service2Title: "Desarrollo de apps móviles",
-    service2Copy:
-      "Lanza experiencias iOS y Android de alta calidad con componentes compartidos y entrega rápida.",
+    service2Copy: "Apps iOS y Android elegantes diseñadas para retención y engagement.",
     service3Title: "Transformación digital",
-    service3Copy:
-      "Moderniza sistemas heredados, automatiza flujos de trabajo y genera resultados de negocio medibles.",
-    service4Title: "Integración de productos con IA",
-    service4Copy:
-      "Incorpora asistentes inteligentes, recomendaciones y analítica en los recorridos clave del usuario.",
+    service3Copy: "Optimiza operaciones, moderniza sistemas heredados y reduce complejidad.",
+    service4Title: "Integración de IA",
+    service4Copy: "Implementa asistentes y flujos inteligentes para mejorar productividad y UX.",
+    showcaseEyebrow: "Portafolio",
+    showcaseTitle: "Proyectos visuales interactivos con enfoque dinámico.",
+    showcaseCopy: "Haz clic en cualquier imagen para verla en grande y explorar cada solución.",
+    showcase1Title: "Plataforma fintech analítica",
+    showcase2Title: "Rediseño de flujos empresariales",
+    showcase3Title: "Experiencia de comercio móvil",
+    showcase4Title: "Onboarding guiado por IA",
+    closePreview: "Cerrar vista",
     aiEyebrow: "UX impulsada por IA",
-    aiTitle: "Obtén una recomendación instantánea de servicios con IA.",
-    aiCopy: "Comparte tus prioridades y el asistente sugerirá el mejor modelo de colaboración.",
+    aiTitle: "Obtén una recomendación instantánea.",
+    aiCopy: "Comparte tus prioridades y el asistente sugerirá el mejor modelo de trabajo.",
     formGoalLabel: "Objetivo principal",
     goalLaunch: "Lanzar un nuevo producto",
     goalScale: "Escalar software existente",
@@ -114,70 +147,83 @@ const translations = {
     formTimelineLabel: "Expectativa de entrega",
     timelineFast: "MVP rápido",
     timelineBalanced: "Hoja de ruta equilibrada",
-    timelinePhased: "Despliegue empresarial por fases",
+    timelinePhased: "Despliegue por fases",
     formButton: "Generar recomendación",
     aiResultTitle: "Ruta recomendada",
-    aiResultDefault: "Completa el formulario para ver tu recomendación personalizada.",
+    aiResultDefault: "Completa el formulario para ver una recomendación personalizada.",
     globalEyebrow: "Preparación global",
-    globalTitle: "Diseñado para audiencias internacionales y alojamiento confiable.",
+    globalTitle: "Diseñado para audiencias internacionales y hosting confiable.",
     global1Title: "Entrega multilingüe",
     global1Copy: "Cambio de idioma nativo, soporte RTL y arquitectura de traducción escalable.",
     global2Title: "Accesibilidad primero",
-    global2Copy:
-      "Navegación por teclado, estructura semántica y diseño inclusivo alineado con estándares WCAG.",
-    global3Title: "Alojamiento confiable",
-    global3Copy: "Implementación global en plataformas CDN con caché, SSL y entrega continua.",
+    global2Copy: "Navegación por teclado, estructura semántica y diseño inclusivo basado en WCAG.",
+    global3Title: "Hosting confiable",
+    global3Copy: "Despliegue global en plataformas CDN con caché, SSL y entrega continua.",
     contactEyebrow: "Contacto",
     contactTitle: "Construyamos tu próximo producto digital.",
-    contactCopy:
-      "Comparte tus objetivos y te ofreceré una hoja de ruta enfocada en prioridades técnicas y de negocio.",
+    contactCopy: "Comparte tus objetivos y prepararé una ruta clara con prioridades técnicas y de negocio.",
     contactButton: "Iniciar conversación",
     footerCopy: "© <span id=\"year\"></span> Digi-Tech. Creado para impacto global.",
     recommendationLaunchWebFast:
-      "Recomendación: Inicia con un sprint de descubrimiento y un MVP web rápido; luego expande con automatización y analítica tras validar.",
+      "Recomendación: inicia con un sprint de descubrimiento y un MVP web rápido para validar valor.",
     recommendationLaunchMultiBalanced:
-      "Recomendación: Usa una hoja de ruta unificada con sistemas de diseño compartidos para web y móvil, entregada en hitos equilibrados.",
+      "Recomendación: usa una hoja de ruta unificada y un sistema de diseño compartido para web y móvil.",
     recommendationScaleMobilePhased:
-      "Recomendación: Prioriza optimización de rendimiento móvil, observabilidad y lanzamientos por fases para escalar con confiabilidad.",
+      "Recomendación: optimiza rendimiento móvil primero y despliega mejoras en fases medibles.",
     recommendationModernize:
-      "Recomendación: Realiza una evaluación de transformación, moderniza servicios clave de forma incremental e integra copilotos de IA en flujos críticos.",
+      "Recomendación: comienza con auditoría técnica, moderniza servicios clave e integra copilotos IA.",
     recommendationDefault:
-      "Recomendación: Combina estrategia, UX e ingeniería en una colaboración enfocada para lograr resultados medibles rápidamente."
+      "Recomendación: combina estrategia, UX e ingeniería para resultados rápidos y medibles."
   },
   fr: {
     skipToContent: "Aller au contenu",
     navServices: "Services",
+    navShowcase: "Réalisations",
     navAi: "Expérience IA",
     navGlobal: "International",
     navContact: "Contact",
     languageLabel: "Langue",
     heroEyebrow: "Ingénieur Logiciel & Partenaire Digital",
-    heroTitle: "Conception de produits web et mobile intelligents pour des entreprises ambitieuses.",
+    heroTitle: "Des produits digitaux simples, rapides et intelligents.",
     heroCopy:
-      "J'aide les organisations à créer des plateformes logicielles résilientes, moderniser leurs opérations et faire évoluer leurs expériences digitales grâce à une approche minimaliste et enrichie par l'IA.",
-    heroPrimaryCta: "Réserver un appel",
-    heroSecondaryCta: "Découvrir les services",
-    highlightsTitle: "Ce que vous gagnez",
-    highlight1: "Stratégie produit et livraison de bout en bout",
-    highlight2: "Architecture prête pour l'IA et ingénierie orientée performance",
-    highlight3: "Accessibilité globale, localisation et conformité",
+      "Je conçois et développe des expériences web et mobiles modernes qui améliorent les opérations métier et l'expérience utilisateur.",
+    heroPrimaryCta: "Lancer votre projet",
+    heroSecondaryCta: "Voir les projets",
+    heroPoint1: "Livraison rapide avec architecture propre",
+    heroPoint2: "Interfaces interactives et engageantes",
+    heroPoint3: "Scalabilité et localisation globale",
+    floatingBadge: "UX enrichie par IA",
+    statsTitle: "Livraison fiable, résultats mesurables.",
+    stat1Label: "Produits lancés",
+    stat2Label: "Satisfaction client",
+    stat3Label: "Couverture internationale",
     servicesEyebrow: "Services",
-    servicesTitle: "Des services d'ingénierie modernes conçus pour la croissance.",
+    servicesTitle: "Des solutions interactives à chaque étape de croissance.",
+    servicesCopy: "Choisissez une catégorie pour trouver rapidement la solution adaptée.",
+    filterAll: "Tous",
+    filterWeb: "Web",
+    filterMobile: "Mobile",
+    filterTransformation: "Transformation",
+    filterAi: "IA",
     service1Title: "Ingénierie d'applications web",
-    service1Copy:
-      "Créez des plateformes web sécurisées et évolutives avec une UX intuitive et une architecture cloud-native.",
-    service2Title: "Développement d'applications mobiles",
-    service2Copy:
-      "Lancez des expériences iOS et Android de qualité avec des composants partagés et une livraison rapide.",
+    service1Copy: "Plateformes performantes et évolutives avec des parcours utilisateurs intuitifs.",
+    service2Title: "Développement mobile",
+    service2Copy: "Applications iOS et Android élégantes pensées pour l'engagement.",
     service3Title: "Transformation digitale",
-    service3Copy:
-      "Modernisez les systèmes legacy, automatisez les workflows et générez des résultats mesurables.",
-    service4Title: "Intégration de produits IA",
-    service4Copy:
-      "Intégrez assistants intelligents, recommandations et analyses dans les parcours utilisateurs clés.",
-    aiEyebrow: "UX pilotée par l'IA",
-    aiTitle: "Obtenez instantanément une recommandation de service.",
-    aiCopy: "Partagez vos priorités et l'assistant proposera le meilleur modèle d'accompagnement.",
+    service3Copy: "Modernisez vos systèmes et simplifiez vos opérations.",
+    service4Title: "Intégration IA",
+    service4Copy: "Déployez des assistants intelligents pour améliorer productivité et UX.",
+    showcaseEyebrow: "Réalisations",
+    showcaseTitle: "Aperçus projets interactifs et visuels.",
+    showcaseCopy: "Cliquez sur une image pour l'ouvrir et explorer rapidement chaque idée.",
+    showcase1Title: "Plateforme analytique fintech",
+    showcase2Title: "Refonte de workflows entreprise",
+    showcase3Title: "Expérience e-commerce mobile",
+    showcase4Title: "Onboarding guidé par IA",
+    closePreview: "Fermer l'aperçu",
+    aiEyebrow: "UX pilotée par IA",
+    aiTitle: "Obtenez une recommandation instantanée.",
+    aiCopy: "Indiquez vos priorités et l'assistant suggère l'approche idéale.",
     formGoalLabel: "Objectif principal",
     goalLaunch: "Lancer un nouveau produit",
     goalScale: "Faire évoluer un logiciel existant",
@@ -189,66 +235,82 @@ const translations = {
     formTimelineLabel: "Attente de livraison",
     timelineFast: "MVP rapide",
     timelineBalanced: "Feuille de route équilibrée",
-    timelinePhased: "Déploiement entreprise progressif",
+    timelinePhased: "Déploiement progressif",
     formButton: "Générer la recommandation",
     aiResultTitle: "Parcours recommandé",
-    aiResultDefault: "Remplissez le formulaire pour voir votre recommandation personnalisée.",
+    aiResultDefault: "Remplissez le formulaire pour obtenir une recommandation personnalisée.",
     globalEyebrow: "Prêt pour l'international",
     globalTitle: "Conçu pour une audience mondiale et un hébergement fiable.",
     global1Title: "Livraison multilingue",
-    global1Copy: "Changement de langue natif, support RTL et architecture de traduction évolutive.",
+    global1Copy: "Commutation native des langues, support RTL et architecture évolutive.",
     global2Title: "Accessibilité d'abord",
-    global2Copy:
-      "Navigation clavier, structure sémantique et design inclusif aligné sur les standards WCAG.",
+    global2Copy: "Navigation clavier, structure sémantique et design inclusif conforme WCAG.",
     global3Title: "Hébergement fiable",
-    global3Copy: "Déploiement mondial sur des plateformes CDN avec cache, SSL et livraison continue.",
+    global3Copy: "Déploiement mondial via CDN avec cache, SSL et livraison continue.",
     contactEyebrow: "Contact",
     contactTitle: "Construisons votre prochain produit digital.",
-    contactCopy:
-      "Partagez vos objectifs et je vous proposerai une feuille de route ciblée sur les priorités techniques et business.",
+    contactCopy: "Partagez vos objectifs et je vous propose une feuille de route claire et ciblée.",
     contactButton: "Démarrer la conversation",
     footerCopy: "© <span id=\"year\"></span> Digi-Tech. Conçu pour un impact mondial.",
     recommendationLaunchWebFast:
-      "Recommandation : commencez par un sprint de cadrage et un MVP web rapide, puis développez l'automatisation et l'analytics après validation.",
+      "Recommandation : démarrez par un sprint de cadrage et un MVP web rapide.",
     recommendationLaunchMultiBalanced:
-      "Recommandation : adoptez une feuille de route unifiée avec un design system partagé pour le web et le mobile, livré par jalons équilibrés.",
+      "Recommandation : adoptez une roadmap unifiée et un design system partagé web + mobile.",
     recommendationScaleMobilePhased:
-      "Recommandation : priorisez la performance mobile, l'observabilité et des déploiements progressifs pour une montée en charge fiable.",
+      "Recommandation : priorisez la performance mobile puis déployez par étapes mesurables.",
     recommendationModernize:
-      "Recommandation : réalisez un diagnostic de transformation, modernisez les services cœur par étapes et intégrez des copilotes IA dans les workflows clés.",
+      "Recommandation : commencez par un audit, modernisez les services clés et intégrez des copilotes IA.",
     recommendationDefault:
-      "Recommandation : combinez stratégie, UX et ingénierie dans un engagement ciblé pour délivrer rapidement des résultats mesurables."
+      "Recommandation : combinez stratégie, UX et ingénierie pour des résultats rapides et durables."
   },
   ar: {
     skipToContent: "انتقل إلى المحتوى",
     navServices: "الخدمات",
+    navShowcase: "الأعمال",
     navAi: "تجربة الذكاء الاصطناعي",
     navGlobal: "العالمية",
     navContact: "التواصل",
     languageLabel: "اللغة",
     heroEyebrow: "مهندس برمجيات وشريك رقمي",
-    heroTitle: "تصميم منتجات ويب وموبايل ذكية للشركات الطموحة.",
-    heroCopy:
-      "أساعد المؤسسات على بناء منصات برمجية قوية، وتحديث العمليات، وتوسيع التجارب الرقمية عبر نهج بسيط ومدعوم بالذكاء الاصطناعي.",
-    heroPrimaryCta: "احجز مكالمة استكشافية",
-    heroSecondaryCta: "استكشف الخدمات",
-    highlightsTitle: "ما الذي ستحصل عليه",
-    highlight1: "استراتيجية وتسليم متكامل للمنتج",
-    highlight2: "هندسة مهيأة للذكاء الاصطناعي مع تركيز على الأداء",
-    highlight3: "دعم الوصول العالمي والتعريب والامتثال",
+    heroTitle: "منتجات رقمية بسيطة وسريعة وذكية.",
+    heroCopy: "أصمم وأطوّر تجارب ويب وموبايل حديثة تحسن الأعمال وتمنح المستخدم تجربة ممتعة.",
+    heroPrimaryCta: "ابدأ مشروعك",
+    heroSecondaryCta: "شاهد الأعمال",
+    heroPoint1: "تسليم سريع مع بنية نظيفة",
+    heroPoint2: "واجهات تفاعلية يحبها المستخدم",
+    heroPoint3: "جاهزية عالمية وتعدد لغات",
+    floatingBadge: "تجربة مستخدم معززة بالذكاء الاصطناعي",
+    statsTitle: "تنفيذ موثوق ونتائج قابلة للقياس.",
+    stat1Label: "منتج تم إطلاقه",
+    stat2Label: "رضا العملاء",
+    stat3Label: "نطاق دولي",
     servicesEyebrow: "الخدمات",
-    servicesTitle: "خدمات هندسية حديثة مصممة للنمو.",
+    servicesTitle: "حلول تفاعلية لكل مرحلة من نمو المنتج.",
+    servicesCopy: "اختر الفئة لاستكشاف ما يناسب أهدافك بسرعة.",
+    filterAll: "الكل",
+    filterWeb: "ويب",
+    filterMobile: "موبايل",
+    filterTransformation: "التحول",
+    filterAi: "ذكاء اصطناعي",
     service1Title: "هندسة تطبيقات الويب",
-    service1Copy: "بناء منصات ويب آمنة وقابلة للتوسع مع تجربة استخدام سلسة وبنية سحابية حديثة.",
+    service1Copy: "منصات عالية الأداء وقابلة للتوسع مع رحلات مستخدم واضحة.",
     service2Title: "تطوير تطبيقات الموبايل",
-    service2Copy: "إطلاق تجارب iOS وAndroid عالية الجودة بمكونات مشتركة وتسليم سريع.",
+    service2Copy: "تطبيقات iOS وAndroid أنيقة مصممة لزيادة التفاعل.",
     service3Title: "التحول الرقمي",
-    service3Copy: "تحديث الأنظمة القديمة، وأتمتة سير العمل، وتحقيق نتائج أعمال قابلة للقياس.",
-    service4Title: "دمج الذكاء الاصطناعي في المنتجات",
-    service4Copy: "إضافة مساعدين ذكيين وتوصيات وتحليلات في رحلات المستخدم الأساسية.",
+    service3Copy: "تبسيط العمليات وتحديث الأنظمة القديمة وتقليل التعقيد.",
+    service4Title: "دمج الذكاء الاصطناعي",
+    service4Copy: "إطلاق مساعدين أذكياء وتدفقات عمل ذكية لتحسين الإنتاجية وتجربة المستخدم.",
+    showcaseEyebrow: "الأعمال",
+    showcaseTitle: "نماذج مشاريع تفاعلية بتجربة بصرية حديثة.",
+    showcaseCopy: "اضغط على أي صورة للمعاينة واكتشاف الفكرة بسرعة.",
+    showcase1Title: "منصة تحليلات مالية",
+    showcase2Title: "إعادة تصميم سير العمل المؤسسي",
+    showcase3Title: "تجربة تجارة عبر الموبايل",
+    showcase4Title: "رحلة onboarding موجهة بالذكاء الاصطناعي",
+    closePreview: "إغلاق المعاينة",
     aiEyebrow: "تجربة مستخدم مدعومة بالذكاء الاصطناعي",
-    aiTitle: "احصل على توصية خدمة فورية بأسلوب الذكاء الاصطناعي.",
-    aiCopy: "شارك أولوياتك وسيقترح المساعد نموذج التعاون الأنسب.",
+    aiTitle: "احصل على توصية فورية.",
+    aiCopy: "شارك أولوياتك وسيقترح المساعد أفضل نموذج للتنفيذ.",
     formGoalLabel: "الهدف الرئيسي",
     goalLaunch: "إطلاق منتج جديد",
     goalScale: "توسيع برنامج قائم",
@@ -258,35 +320,33 @@ const translations = {
     platformMobile: "الموبايل",
     platformMulti: "الويب + الموبايل",
     formTimelineLabel: "توقعات التسليم",
-    timelineFast: "إطلاق MVP سريع",
+    timelineFast: "MVP سريع",
     timelineBalanced: "خارطة طريق متوازنة",
-    timelinePhased: "إطلاق مؤسسي على مراحل",
+    timelinePhased: "إطلاق تدريجي",
     formButton: "إنشاء التوصية",
-    aiResultTitle: "المسار الموصى به",
-    aiResultDefault: "أكمل النموذج لرؤية توصيتك المخصصة.",
+    aiResultTitle: "المسار المقترح",
+    aiResultDefault: "أكمل النموذج للحصول على توصية مخصصة.",
     globalEyebrow: "جاهزية عالمية",
     globalTitle: "مصمم لجمهور عالمي واستضافة موثوقة.",
     global1Title: "تسليم متعدد اللغات",
-    global1Copy: "تبديل لغة أصلي، ودعم RTL، وبنية ترجمة قابلة للتوسع.",
+    global1Copy: "تبديل لغة أصلي، دعم RTL، وبنية ترجمة قابلة للتوسع.",
     global2Title: "إمكانية الوصول أولاً",
-    global2Copy: "تنقل بلوحة المفاتيح، وبنية دلالية، وتصميم شامل متوافق مع معايير WCAG.",
-    global3Title: "بنية استضافة موثوقة",
-    global3Copy: "نشر عالمي على منصات مدعومة بشبكات CDN مع التخزين المؤقت وSSL والتسليم المستمر.",
+    global2Copy: "تنقل بلوحة المفاتيح وهيكل دلالي وتصميم شامل بمعايير WCAG.",
+    global3Title: "استضافة موثوقة",
+    global3Copy: "نشر عالمي عبر CDN مع تخزين مؤقت وSSL وتسليم مستمر.",
     contactEyebrow: "تواصل",
     contactTitle: "لنُنشئ منتجك الرقمي القادم.",
-    contactCopy: "شارك أهدافك وسأقدم لك خارطة طريق مركزة تجمع الأولويات التقنية والتجارية.",
+    contactCopy: "شارك أهدافك وسأقدم خارطة طريق واضحة تجمع الأولويات التقنية والتجارية.",
     contactButton: "ابدأ المحادثة",
     footerCopy: "© <span id=\"year\"></span> Digi-Tech. مبني لتأثير عالمي.",
-    recommendationLaunchWebFast:
-      "التوصية: ابدأ بسبرنت اكتشاف ونسخة MVP سريعة للويب، ثم وسّع الأتمتة والتحليلات بعد التحقق.",
+    recommendationLaunchWebFast: "التوصية: ابدأ بسبرنت اكتشاف ثم MVP ويب سريع للتحقق من القيمة.",
     recommendationLaunchMultiBalanced:
-      "التوصية: استخدم خارطة طريق موحدة مع نظام تصميم مشترك للويب والموبايل وتسليم على مراحل متوازنة.",
+      "التوصية: اعتمد خارطة طريق موحدة ونظام تصميم مشترك للويب والموبايل.",
     recommendationScaleMobilePhased:
-      "التوصية: ركّز على تحسين أداء الموبايل والمراقبة وإطلاق الميزات تدريجياً لتحقيق توسع موثوق.",
+      "التوصية: حسّن أداء الموبايل أولاً ثم أطلق التحسينات على مراحل.",
     recommendationModernize:
-      "التوصية: نفّذ تقييماً للتحول الرقمي، وحدث الخدمات الأساسية تدريجياً، وادمج مساعدي ذكاء اصطناعي في سير العمل المهم.",
-    recommendationDefault:
-      "التوصية: اجمع بين الاستراتيجية وتجربة المستخدم والهندسة في تعاون مركز لتحقيق نتائج قابلة للقياس بسرعة."
+      "التوصية: ابدأ بتقييم تقني ثم حدّث الخدمات الرئيسية وادمج مساعدين أذكياء.",
+    recommendationDefault: "التوصية: اجمع بين الاستراتيجية وتجربة المستخدم والهندسة لتحقيق نتائج سريعة."
   }
 };
 
@@ -294,42 +354,159 @@ const languageSelect = document.getElementById("language-select");
 const translatableNodes = document.querySelectorAll("[data-i18n]");
 const form = document.getElementById("ai-form");
 const resultText = document.getElementById("result-text");
+const filterButtons = document.querySelectorAll(".filter-button");
+const serviceCards = document.querySelectorAll(".service-card");
+const revealNodes = document.querySelectorAll(".reveal");
+const statValues = document.querySelectorAll(".stat-value");
+const galleryItems = document.querySelectorAll(".gallery-item");
+const galleryModal = document.getElementById("gallery-modal");
+const modalImage = document.getElementById("modal-image");
+const modalCaption = document.getElementById("modal-caption");
+const modalClose = document.getElementById("modal-close");
+
+let activeLanguage = "en";
+let statsAnimated = false;
+let activeModalCaptionKey = null;
 
 const applyLanguage = (language) => {
   const dictionary = translations[language] || translations.en;
   const isRtl = language === "ar";
+  activeLanguage = language;
   document.documentElement.lang = language;
   document.documentElement.dir = isRtl ? "rtl" : "ltr";
 
   translatableNodes.forEach((node) => {
     const key = node.dataset.i18n;
-    if (dictionary[key]) {
-      if (key === "footerCopy") {
-        node.innerHTML = dictionary[key];
-      } else {
-        node.textContent = dictionary[key];
-      }
+    if (!dictionary[key]) return;
+
+    if (key === "footerCopy") {
+      node.innerHTML = dictionary[key];
+    } else {
+      node.textContent = dictionary[key];
     }
   });
 
   localStorage.setItem("preferredLanguage", language);
   document.getElementById("year").textContent = new Date().getFullYear().toString();
+  modalClose.setAttribute("aria-label", dictionary.closePreview);
+
+  if (!galleryModal.hidden && activeModalCaptionKey) {
+    modalCaption.textContent = dictionary[activeModalCaptionKey] || dictionary.showcase1Title;
+  }
 };
 
 const getRecommendationKey = (goal, platform, timeline) => {
-  if (goal === "launch" && platform === "web" && timeline === "fast") {
-    return "recommendationLaunchWebFast";
-  }
-  if (goal === "launch" && platform === "multi" && timeline === "balanced") {
-    return "recommendationLaunchMultiBalanced";
-  }
-  if (goal === "scale" && platform === "mobile" && timeline === "phased") {
-    return "recommendationScaleMobilePhased";
-  }
-  if (goal === "modernize") {
-    return "recommendationModernize";
-  }
+  if (goal === "launch" && platform === "web" && timeline === "fast") return "recommendationLaunchWebFast";
+  if (goal === "launch" && platform === "multi" && timeline === "balanced") return "recommendationLaunchMultiBalanced";
+  if (goal === "scale" && platform === "mobile" && timeline === "phased") return "recommendationScaleMobilePhased";
+  if (goal === "modernize") return "recommendationModernize";
   return "recommendationDefault";
+};
+
+const revealOnScroll = () => {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.2 }
+  );
+
+  revealNodes.forEach((node) => observer.observe(node));
+};
+
+const animateCounter = (element) => {
+  const target = Number(element.dataset.statTarget || 0);
+  const suffix = element.dataset.statSuffix || "";
+  const duration = 1100;
+  const start = performance.now();
+
+  const tick = (time) => {
+    const progress = Math.min((time - start) / duration, 1);
+    const current = Math.floor(progress * target);
+    element.textContent = `${current}${suffix}`;
+    if (progress < 1) requestAnimationFrame(tick);
+  };
+
+  requestAnimationFrame(tick);
+};
+
+const setupStatsAnimation = () => {
+  const statsSection = document.querySelector(".stats-section");
+  if (!statsSection) return;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !statsAnimated) {
+          statValues.forEach((item) => animateCounter(item));
+          statsAnimated = true;
+        }
+      });
+    },
+    { threshold: 0.45 }
+  );
+
+  observer.observe(statsSection);
+};
+
+const setServiceFilter = (category) => {
+  serviceCards.forEach((card) => {
+    const shouldShow = category === "all" || card.dataset.category === category;
+    card.classList.toggle("is-hidden", !shouldShow);
+  });
+
+  filterButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.filter === category);
+  });
+};
+
+const setupServiceFilters = () => {
+  filterButtons.forEach((button) => {
+    button.addEventListener("click", () => setServiceFilter(button.dataset.filter || "all"));
+  });
+};
+
+const closeModal = () => {
+  galleryModal.hidden = true;
+  modalImage.src = "";
+  modalImage.alt = "";
+  activeModalCaptionKey = null;
+  document.body.classList.remove("modal-open");
+};
+
+const openModal = (imageUrl, captionKey, imageAlt) => {
+  const dictionary = translations[activeLanguage] || translations.en;
+  galleryModal.hidden = false;
+  modalImage.src = imageUrl;
+  modalImage.alt = imageAlt;
+  activeModalCaptionKey = captionKey;
+  modalCaption.textContent = dictionary[captionKey] || dictionary.showcase1Title;
+  document.body.classList.add("modal-open");
+};
+
+const setupGallery = () => {
+  galleryItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      const image = item.querySelector("img");
+      const imageUrl = item.dataset.full || image?.src || "";
+      const captionKey = item.dataset.captionKey || "showcase1Title";
+      const imageAlt = image?.alt || "";
+      openModal(imageUrl, captionKey, imageAlt);
+    });
+  });
+
+  modalClose.addEventListener("click", closeModal);
+  galleryModal.addEventListener("click", (event) => {
+    if (event.target === galleryModal) closeModal();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !galleryModal.hidden) closeModal();
+  });
 };
 
 form.addEventListener("submit", (event) => {
@@ -337,8 +514,7 @@ form.addEventListener("submit", (event) => {
   const goal = document.getElementById("goal").value;
   const platform = document.getElementById("platform").value;
   const timeline = document.getElementById("timeline").value;
-  const language = languageSelect.value;
-  const dictionary = translations[language] || translations.en;
+  const dictionary = translations[activeLanguage] || translations.en;
   const key = getRecommendationKey(goal, platform, timeline);
   resultText.textContent = dictionary[key] || dictionary.recommendationDefault;
 });
@@ -350,3 +526,8 @@ languageSelect.addEventListener("change", (event) => {
 const savedLanguage = localStorage.getItem("preferredLanguage") || "en";
 languageSelect.value = savedLanguage;
 applyLanguage(savedLanguage);
+setServiceFilter("all");
+setupServiceFilters();
+setupGallery();
+revealOnScroll();
+setupStatsAnimation();
