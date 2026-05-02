@@ -1,0 +1,38 @@
+<svg width="1200" height="320" viewBox="0 0 1200 320" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="logoTitle logoDesc">
+  <title id="logoTitle">Digi-Tech logo</title>
+  <desc id="logoDesc">A modern minimalist Digi-Tech logo with a DT monogram icon and wordmark.</desc>
+
+  <defs>
+    <linearGradient id="dtGradient" x1="36" y1="36" x2="284" y2="284" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6CA9FF"/>
+      <stop offset="1" stop-color="#3F81F6"/>
+    </linearGradient>
+    <linearGradient id="pulseGradient" x1="72" y1="72" x2="248" y2="248" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#55E2C0"/>
+      <stop offset="1" stop-color="#6CA9FF"/>
+    </linearGradient>
+    <filter id="softShadow" x="0" y="0" width="320" height="320" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="10"/>
+      <feGaussianBlur stdDeviation="10"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.06 0 0 0 0 0.14 0 0 0 0 0.29 0 0 0 0.3 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#softShadow)">
+    <rect x="20" y="20" width="280" height="280" rx="72" fill="#0D1220"/>
+    <rect x="20" y="20" width="280" height="280" rx="72" stroke="#1E2A44" stroke-width="2"/>
+  </g>
+
+  <path d="M86 88H172C205.137 88 232 114.863 232 148V148C232 181.137 205.137 208 172 208H86V88Z" fill="url(#dtGradient)"/>
+  <rect x="118" y="120" width="82" height="56" rx="16" fill="#0D1220"/>
+  <path d="M168 112H240V136H196V220H168V112Z" fill="url(#pulseGradient)"/>
+
+  <text x="352" y="150" fill="#0D1220" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="88" font-weight="700" letter-spacing="1.5">Digi-Tech</text>
+  <text x="356" y="205" fill="#3F81F6" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="600" letter-spacing="4.5">SOFTWARE ENGINEERING</text>
+  <text x="356" y="248" fill="#4B5E82" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="24" font-weight="500" letter-spacing="1">Web " Mobile " AI " Digital Transformation</text>
+</svg>
