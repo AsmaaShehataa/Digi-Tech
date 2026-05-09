@@ -13,14 +13,27 @@ const shareResult = document.getElementById("share-result");
 const addMilestoneButton = document.getElementById("add-milestone");
 const milestonesContainer = document.getElementById("milestones-container");
 const milestoneTemplate = document.getElementById("milestone-template");
+const dashboardCurrencySelect = document.getElementById("dashboard-currency");
+const projectCurrencySelect = document.getElementById("project-currency");
+const exportCsvLink = document.getElementById("export-csv-link");
+const exportJsonLink = document.getElementById("export-json-link");
 
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-});
+const formatterCache = new Map();
+const getCurrencyFormatter = (currencyCode) => {
+  if (!formatterCache.has(currencyCode)) {
+    formatterCache.set(
+      currencyCode,
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: currencyCode,
+        minimumFractionDigits: 2,
+      })
+    );
+  }
+  return formatterCache.get(currencyCode);
+};
 
-const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
+const formatCurrency = (value, currencyCode) => getCurrencyFormatter(currencyCode).format(Number(value || 0));
 
 const statusLabelMap = {
   planned: "Planned",
@@ -30,10 +43,16 @@ const statusLabelMap = {
   cancelled: "Cancelled",
 };
 
-const renderMilestoneRow = (milestone) => {
+const updateExportLinks = () => {
+  const currency = dashboardCurrencySelect.value;
+  exportCsvLink.href = `/api/admin/export.csv?currency=${encodeURIComponent(currency)}`;
+  exportJsonLink.href = `/api/admin/export.json?currency=${encodeURIComponent(currency)}`;
+};
+
+const renderMilestoneRow = (milestone, currencyCode) => {
   const dueClass = milestone.paid ? "status-completed" : "status-upcoming";
   return `<span class="milestone-pill ${dueClass}">
-      ${milestone.title} • ${formatCurrency(milestone.amount)} • ${milestone.due_date}
+      ${milestone.title} • ${formatCurrency(milestone.amount, currencyCode)} • ${milestone.due_date}
     </span>`;
 };
 
@@ -41,7 +60,7 @@ const renderProjects = (projects) => {
   if (!projects.length) {
     projectsTableBody.innerHTML = `
       <tr>
-        <td colspan="6"><p class="empty-state">No projects yet. Add your first project to start tracking.</p></td>
+        <td colspan="6"><p class="empty-state">No projects in this currency yet. Add one to start tracking.</p></td>
       </tr>
     `;
     return;
@@ -53,7 +72,7 @@ const renderProjects = (projects) => {
       const statusClass = `status-${metrics.effective_status}`;
       const deadlineClass = `status-${metrics.deadline_state}`;
       const milestonesHtml = project.milestones.length
-        ? project.milestones.map(renderMilestoneRow).join("")
+        ? project.milestones.map((milestone) => renderMilestoneRow(milestone, project.currency)).join("")
         : `<span class="empty-state">No milestones set.</span>`;
 
       return `
@@ -72,8 +91,8 @@ const renderProjects = (projects) => {
             </span>
           </td>
           <td>
-            <p class="project-main">${formatCurrency(project.paid_amount)} / ${formatCurrency(project.total_price)}</p>
-            <p class="project-sub">Remaining: ${formatCurrency(metrics.remaining_balance)}</p>
+            <p class="project-main">${formatCurrency(project.paid_amount, project.currency)} / ${formatCurrency(project.total_price, project.currency)}</p>
+            <p class="project-sub">Currency: ${project.currency} • Remaining: ${formatCurrency(metrics.remaining_balance, project.currency)}</p>
             <div class="progress-track"><div class="progress-fill" style="width: ${metrics.payment_progress}%;"></div></div>
             <p class="project-sub">${metrics.payment_progress}% paid</p>
           </td>
@@ -91,15 +110,16 @@ const renderProjects = (projects) => {
 
 const renderOverview = (overview) => {
   const totals = overview.totals;
+  const currency = overview.currency || dashboardCurrencySelect.value;
   activeProjectsEl.textContent = totals.active_projects;
   completedProjectsEl.textContent = totals.completed_projects;
-  pendingPaymentsEl.textContent = `${totals.pending_payments_count} (${formatCurrency(totals.pending_payments_amount)})`;
-  overduePaymentsEl.textContent = `${totals.overdue_payments_count} (${formatCurrency(totals.overdue_payments_amount)})`;
+  pendingPaymentsEl.textContent = `${totals.pending_payments_count} (${formatCurrency(totals.pending_payments_amount, currency)})`;
+  overduePaymentsEl.textContent = `${totals.overdue_payments_count} (${formatCurrency(totals.overdue_payments_amount, currency)})`;
   upcomingDeadlinesEl.textContent = totals.upcoming_deadlines_count;
   portfolioProgressEl.textContent = `${totals.portfolio_payment_progress}%`;
 
   if (!overview.upcoming_deadlines.length) {
-    deadlineListEl.innerHTML = `<li>No deadlines in the next 14 days.</li>`;
+    deadlineListEl.innerHTML = `<li>No ${currency} deadlines in the next 14 days.</li>`;
     return;
   }
 
@@ -115,16 +135,16 @@ const renderOverview = (overview) => {
     .join("");
 };
 
-const fetchOverview = async () => {
-  const response = await fetch("/api/admin/overview");
+const fetchOverview = async (currency) => {
+  const response = await fetch(`/api/admin/overview?currency=${encodeURIComponent(currency)}`);
   if (!response.ok) {
     throw new Error("Unable to load dashboard overview.");
   }
   return response.json();
 };
 
-const fetchProjects = async () => {
-  const response = await fetch("/api/admin/projects");
+const fetchProjects = async (currency) => {
+  const response = await fetch(`/api/admin/projects?currency=${encodeURIComponent(currency)}`);
   if (!response.ok) {
     throw new Error("Unable to load projects.");
   }
@@ -153,7 +173,9 @@ const collectMilestones = () => {
 };
 
 const refreshDashboard = async () => {
-  const [overview, projects] = await Promise.all([fetchOverview(), fetchProjects()]);
+  const currency = dashboardCurrencySelect.value;
+  updateExportLinks();
+  const [overview, projects] = await Promise.all([fetchOverview(currency), fetchProjects(currency)]);
   renderOverview(overview);
   renderProjects(projects);
 };
@@ -168,6 +190,7 @@ form.addEventListener("submit", async (event) => {
   const payload = {
     client_name: formData.get("client_name"),
     project_name: formData.get("project_name"),
+    currency: formData.get("currency"),
     total_price: Number(formData.get("total_price")),
     paid_amount: Number(formData.get("paid_amount")),
     start_date: formData.get("start_date"),
@@ -188,6 +211,7 @@ form.addEventListener("submit", async (event) => {
       throw new Error(body.error || "Unable to save project.");
     }
     form.reset();
+    projectCurrencySelect.value = dashboardCurrencySelect.value;
     milestonesContainer.innerHTML = "";
     createMilestoneItem();
     formFeedback.textContent = "Project saved successfully.";
@@ -205,6 +229,7 @@ shareForm.addEventListener("submit", async (event) => {
   const payload = {
     client_email: formData.get("client_email"),
     admin_email: formData.get("admin_email"),
+    currency: dashboardCurrencySelect.value,
   };
 
   shareResult.textContent = "Generating report draft...";
@@ -219,7 +244,7 @@ shareForm.addEventListener("submit", async (event) => {
       throw new Error(body.error || "Unable to generate email draft.");
     }
     shareResult.innerHTML = `
-      <p>Draft ready for: <strong>${body.recipients}</strong></p>
+      <p>Draft ready for: <strong>${body.recipients}</strong> (${body.currency})</p>
       <a href="${body.mailto_link}">Open email draft</a>
     `;
   } catch (error) {
@@ -227,8 +252,19 @@ shareForm.addEventListener("submit", async (event) => {
   }
 });
 
+dashboardCurrencySelect.addEventListener("change", async () => {
+  projectCurrencySelect.value = dashboardCurrencySelect.value;
+  try {
+    await refreshDashboard();
+  } catch (error) {
+    formFeedback.textContent = error.message;
+    formFeedback.classList.add("error");
+  }
+});
+
 addMilestoneButton.addEventListener("click", createMilestoneItem);
 
+projectCurrencySelect.value = dashboardCurrencySelect.value;
 createMilestoneItem();
 refreshDashboard().catch((error) => {
   formFeedback.textContent = error.message;

@@ -19,6 +19,8 @@ DB_PATH = DATA_DIR / "admin_dashboard.db"
 
 
 ALLOWED_STATUSES = {"planned", "in_progress", "on_hold", "completed", "cancelled"}
+ALLOWED_CURRENCIES = {"USD", "EGP"}
+CURRENCY_SYMBOLS = {"USD": "$", "EGP": "E£"}
 
 
 @dataclass
@@ -47,6 +49,21 @@ def _parse_date(raw_value: str) -> date:
 def _coerce_amount(raw_value: Any) -> float:
     amount = float(raw_value)
     return round(amount, 2)
+
+
+def _normalize_currency(raw_value: Any) -> str:
+    currency = str(raw_value or "").strip().upper()
+    if currency not in ALLOWED_CURRENCIES:
+        raise ValueError(f"Invalid currency: {currency}. Allowed values are USD or EGP.")
+    return currency
+
+
+def _resolve_currency_filter(raw_value: Any, default: str | None = None) -> str | None:
+    if raw_value in (None, ""):
+        raw_value = default
+    if raw_value in (None, ""):
+        return None
+    return _normalize_currency(raw_value)
 
 
 def _calculate_project_metrics(project: dict[str, Any], milestones: list[dict[str, Any]]) -> dict[str, Any]:
@@ -111,6 +128,7 @@ class DashboardRepository:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     client_name TEXT NOT NULL,
                     project_name TEXT NOT NULL,
+                    currency TEXT NOT NULL DEFAULT 'USD',
                     total_price REAL NOT NULL CHECK (total_price >= 0),
                     paid_amount REAL NOT NULL DEFAULT 0 CHECK (paid_amount >= 0),
                     start_date TEXT NOT NULL,
@@ -134,11 +152,16 @@ class DashboardRepository:
                 );
                 """
             )
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(projects)").fetchall()}
+            if "currency" not in columns:
+                conn.execute("ALTER TABLE projects ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'")
+            conn.execute("UPDATE projects SET currency = 'USD' WHERE currency IS NULL OR currency NOT IN ('USD', 'EGP')")
 
     def create_project(self, payload: dict[str, Any]) -> dict[str, Any]:
         status = payload["status"]
         if status not in ALLOWED_STATUSES:
             raise ValueError(f"Invalid status: {status}")
+        currency = _normalize_currency(payload.get("currency", "USD"))
 
         total_price = _coerce_amount(payload["total_price"])
         paid_amount = _coerce_amount(payload.get("paid_amount", 0))
@@ -161,12 +184,13 @@ class DashboardRepository:
             cursor = conn.execute(
                 """
                 INSERT INTO projects (
-                    client_name, project_name, total_price, paid_amount, start_date, deadline, status, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payload["client_name"].strip(),
                     payload["project_name"].strip(),
+                    currency,
                     total_price,
                     paid_amount,
                     payload["start_date"],
@@ -217,6 +241,10 @@ class DashboardRepository:
             _parse_date(payload["deadline"])
             updates.append("deadline = ?")
             values.append(payload["deadline"])
+        if "currency" in payload:
+            currency = _normalize_currency(payload["currency"])
+            updates.append("currency = ?")
+            values.append(currency)
 
         if not updates:
             return self.get_project(project_id)
@@ -259,7 +287,7 @@ class DashboardRepository:
         with self._connect() as conn:
             row = conn.execute(
                 """
-                SELECT id, client_name, project_name, total_price, paid_amount, start_date, deadline, status, notes
+                SELECT id, client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes
                 FROM projects
                 WHERE id = ?
                 """,
@@ -272,6 +300,7 @@ class DashboardRepository:
             "id": row["id"],
             "client_name": row["client_name"],
             "project_name": row["project_name"],
+            "currency": row["currency"],
             "total_price": round(float(row["total_price"]), 2),
             "paid_amount": round(float(row["paid_amount"]), 2),
             "start_date": row["start_date"],
@@ -285,15 +314,16 @@ class DashboardRepository:
         project["metrics"] = metrics
         return project
 
-    def list_projects(self) -> list[dict[str, Any]]:
+    def list_projects(self, currency_filter: str | None = None) -> list[dict[str, Any]]:
+        query = "SELECT id FROM projects"
+        params: tuple[Any, ...] = ()
+        if currency_filter:
+            query += " WHERE currency = ?"
+            params = (currency_filter,)
+        query += " ORDER BY deadline ASC, id DESC"
+
         with self._connect() as conn:
-            rows = conn.execute(
-                """
-                SELECT id
-                FROM projects
-                ORDER BY deadline ASC, id DESC
-                """
-            ).fetchall()
+            rows = conn.execute(query, params).fetchall()
 
         return [self.get_project(row["id"]) for row in rows]
 
@@ -371,6 +401,7 @@ def _serialize_for_csv(projects: list[dict[str, Any]]) -> str:
             "Project ID",
             "Client Name",
             "Project Name",
+            "Currency",
             "Status",
             "Start Date",
             "Deadline",
@@ -390,6 +421,7 @@ def _serialize_for_csv(projects: list[dict[str, Any]]) -> str:
                 project["id"],
                 project["client_name"],
                 project["project_name"],
+                project["currency"],
                 metrics["effective_status"],
                 project["start_date"],
                 project["deadline"],
@@ -432,8 +464,12 @@ def admin_dashboard() -> str:
 
 @app.route("/api/admin/projects", methods=["GET"])
 def list_projects() -> Response:
-    projects = repo.list_projects()
-    return jsonify({"projects": projects})
+    try:
+        currency_filter = _resolve_currency_filter(request.args.get("currency"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    projects = repo.list_projects(currency_filter)
+    return jsonify({"projects": projects, "currency_filter": currency_filter})
 
 
 @app.route("/api/admin/projects", methods=["POST"])
@@ -485,31 +521,51 @@ def patch_project(project_id: int) -> Response:
 
 @app.route("/api/admin/overview", methods=["GET"])
 def get_overview() -> Response:
-    projects = repo.list_projects()
+    try:
+        currency_filter = _resolve_currency_filter(request.args.get("currency"), default="USD")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    projects = repo.list_projects(currency_filter)
     overview = _build_overview(projects)
+    overview["currency"] = currency_filter
     return jsonify(overview)
 
 
 @app.route("/api/admin/export.csv", methods=["GET"])
 def export_csv() -> Response:
-    projects = repo.list_projects()
+    try:
+        currency_filter = _resolve_currency_filter(request.args.get("currency"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    projects = repo.list_projects(currency_filter)
     csv_payload = _serialize_for_csv(projects)
+    file_suffix = currency_filter.lower() if currency_filter else "all-currencies"
     return Response(
         csv_payload,
         mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=admin-project-financial-report.csv"},
+        headers={"Content-Disposition": f"attachment; filename=admin-project-financial-report-{file_suffix}.csv"},
     )
 
 
 @app.route("/api/admin/export.json", methods=["GET"])
 def export_json() -> Response:
-    projects = repo.list_projects()
+    try:
+        currency_filter = _resolve_currency_filter(request.args.get("currency"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    projects = repo.list_projects(currency_filter)
     overview = _build_overview(projects)
-    payload = {"generated_at": datetime.utcnow().isoformat() + "Z", "overview": overview, "projects": projects}
+    payload = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "currency_filter": currency_filter,
+        "overview": overview,
+        "projects": projects,
+    }
+    file_suffix = currency_filter.lower() if currency_filter else "all-currencies"
     return Response(
         json.dumps(payload, indent=2),
         mimetype="application/json",
-        headers={"Content-Disposition": "attachment; filename=admin-project-financial-report.json"},
+        headers={"Content-Disposition": f"attachment; filename=admin-project-financial-report-{file_suffix}.json"},
     )
 
 
@@ -521,20 +577,26 @@ def share_report() -> Response:
     if not client_email and not admin_email:
         return jsonify({"error": "Provide at least one recipient email."}), 400
 
-    projects = repo.list_projects()
+    try:
+        currency_filter = _resolve_currency_filter(payload.get("currency"), default="USD")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    projects = repo.list_projects(currency_filter)
     overview = _build_overview(projects)
     totals = overview["totals"]
-    subject = "Digi-Tech Project & Financial Status Report"
+    currency_symbol = CURRENCY_SYMBOLS[currency_filter] if currency_filter else ""
+    subject = f"Digi-Tech Project & Financial Status Report ({currency_filter})"
     body = (
         "Hello,\n\n"
-        "Here is the latest operational and financial summary:\n"
+        f"Here is the latest operational and financial summary ({currency_filter}):\n"
         f"- Total projects: {totals['total_projects']}\n"
         f"- Active projects: {totals['active_projects']}\n"
         f"- Completed projects: {totals['completed_projects']}\n"
         f"- Pending payments: {totals['pending_payments_count']} items "
-        f"(${totals['pending_payments_amount']:.2f})\n"
+        f"({currency_symbol}{totals['pending_payments_amount']:.2f})\n"
         f"- Overdue payments: {totals['overdue_payments_count']} items "
-        f"(${totals['overdue_payments_amount']:.2f})\n"
+        f"({currency_symbol}{totals['overdue_payments_amount']:.2f})\n"
         f"- Upcoming deadlines (14d): {totals['upcoming_deadlines_count']}\n"
         f"- Portfolio payment progress: {totals['portfolio_payment_progress']:.2f}%\n\n"
         "Please review the exported CSV/JSON report from the admin dashboard for full details.\n\n"
@@ -545,7 +607,15 @@ def share_report() -> Response:
     subject_value = quote(request.args.get("subject", subject))
     body_value = quote(body)
     mailto_link = f"mailto:{recipients}?subject={subject_value}&body={body_value}"
-    return jsonify({"mailto_link": mailto_link, "subject": subject, "body": body, "recipients": recipients})
+    return jsonify(
+        {
+            "mailto_link": mailto_link,
+            "subject": subject,
+            "body": body,
+            "recipients": recipients,
+            "currency": currency_filter,
+        }
+    )
 
 
 if __name__ == "__main__":

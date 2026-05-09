@@ -99,6 +99,12 @@ SQLite database is auto-created at:
 
 - `data/admin_dashboard.db`
 
+Admin dashboard supports manual project entry with automated calculations and now includes:
+
+- project-level currency selection (`USD` or `EGP`)
+- currency-filtered overview cards and project table
+- currency-aware CSV/JSON exports and share-report drafts
+
 ## Customization Notes
 
 - Replace `Digi-Tech` branding and copy in `index.html`

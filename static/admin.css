@@ -80,6 +80,25 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  align-items: end;
+}
+
+.view-currency-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  min-width: 170px;
+}
+
+.view-currency-control select {
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--surface-soft);
+  color: var(--text);
+  padding: 0.52rem 0.65rem;
+  font: inherit;
 }
 
 .button {

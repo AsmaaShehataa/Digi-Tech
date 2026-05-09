@@ -6,8 +6,8 @@ This document describes the new centralized admin system for project and payment
 
 1. **Admin opens `/admin`**
 2. Dashboard loads overview + projects from API:
-   - `GET /api/admin/overview`
-   - `GET /api/admin/projects`
+   - `GET /api/admin/overview?currency=USD|EGP`
+   - `GET /api/admin/projects?currency=USD|EGP`
 3. Admin creates projects through the input form:
    - `POST /api/admin/projects`
 4. System automatically calculates:
@@ -42,6 +42,7 @@ This document describes the new centralized admin system for project and payment
 - `id` (PK)
 - `client_name` (TEXT, required)
 - `project_name` (TEXT, required)
+- `currency` (TEXT, required: USD or EGP)
 - `total_price` (REAL, required)
 - `paid_amount` (REAL, required)
 - `start_date` (TEXT ISO date)
@@ -70,13 +71,13 @@ This document describes the new centralized admin system for project and payment
 
 ### API routes
 
-- `GET /api/admin/projects`
+- `GET /api/admin/projects?currency=USD|EGP`
 - `POST /api/admin/projects`
 - `GET /api/admin/projects/<project_id>`
 - `PATCH /api/admin/projects/<project_id>`
-- `GET /api/admin/overview`
-- `GET /api/admin/export.csv`
-- `GET /api/admin/export.json`
+- `GET /api/admin/overview?currency=USD|EGP`
+- `GET /api/admin/export.csv?currency=USD|EGP` (optional filter)
+- `GET /api/admin/export.json?currency=USD|EGP` (optional filter)
 - `POST /api/admin/share-report`
 
 ## Automated logic
@@ -99,3 +100,10 @@ Portfolio-level summary includes:
 - upcoming deadlines (next 14 days)
 - total contract value, paid, remaining
 - portfolio payment progress percentage
+
+## Currency behavior
+
+- Admin selects a project currency during creation (`USD` / `EGP`).
+- Dashboard overview and project table can be filtered by selected currency.
+- Exports can include all currencies or be filtered by a specific one.
+- No currency conversion is applied automatically; values are tracked natively per project currency.
