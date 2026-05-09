@@ -21,6 +21,7 @@
           <p class="header-copy">
             Centralized monitoring for project delivery, payment health, deadlines, and financial progress.
           </p>
+          <p class="signed-in-as">Signed in as <strong>{{ admin_email }}</strong></p>
         </div>
         <div class="header-actions">
           <label class="view-currency-control">
@@ -33,6 +34,9 @@
           <a class="button ghost" href="/">Back to Website</a>
           <a class="button primary" id="export-csv-link" href="/api/admin/export.csv?currency=USD">Export CSV</a>
           <a class="button primary" id="export-json-link" href="/api/admin/export.json?currency=USD">Export JSON</a>
+          <form action="/admin/logout" method="post">
+            <button class="button ghost" type="submit">Logout</button>
+          </form>
         </div>
       </div>
     </header>

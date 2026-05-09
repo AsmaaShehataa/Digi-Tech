@@ -15,7 +15,9 @@ The site is designed for a seamless user experience, global accessibility, and s
 - `script.js` — Multilingual UI + AI-style recommendation interaction
 - `admin_backend.py` — Flask + SQLite backend for admin route and APIs
 - `templates/admin_dashboard.html` — Admin dashboard UI
+- `templates/admin_login.html` — Admin authentication page
 - `static/admin.css` — Admin dashboard styling
+- `static/admin-auth.css` — Admin login styling
 - `static/admin.js` — Admin dashboard client logic
 - `docs/admin-dashboard.md` — Architecture, schema, and route documentation
 
@@ -93,7 +95,19 @@ python3 admin_backend.py
 Then open:
 
 - `http://localhost:5000/` (website)
-- `http://localhost:5000/admin` (admin dashboard)
+- `http://localhost:5000/admin/login` (admin sign-in)
+- `http://localhost:5000/admin` (admin dashboard, protected)
+
+Default local admin credentials (for first run):
+
+- Email: `admin@digi-tech.local`
+- Password: `ChangeMe123!`
+
+Override credentials in production using environment variables:
+
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_HASH` for pre-hashed secret)
+- `FLASK_SECRET_KEY`
 
 SQLite database is auto-created at:
 

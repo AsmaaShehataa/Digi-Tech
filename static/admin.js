@@ -43,6 +43,18 @@ const statusLabelMap = {
   cancelled: "Cancelled",
 };
 
+const parseJsonResponse = async (response) => {
+  if (response.status === 401) {
+    window.location.href = "/admin/login";
+    throw new Error("Session expired. Redirecting to login...");
+  }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || "Request failed.");
+  }
+  return payload;
+};
+
 const updateExportLinks = () => {
   const currency = dashboardCurrencySelect.value;
   exportCsvLink.href = `/api/admin/export.csv?currency=${encodeURIComponent(currency)}`;
@@ -137,18 +149,12 @@ const renderOverview = (overview) => {
 
 const fetchOverview = async (currency) => {
   const response = await fetch(`/api/admin/overview?currency=${encodeURIComponent(currency)}`);
-  if (!response.ok) {
-    throw new Error("Unable to load dashboard overview.");
-  }
-  return response.json();
+  return parseJsonResponse(response);
 };
 
 const fetchProjects = async (currency) => {
   const response = await fetch(`/api/admin/projects?currency=${encodeURIComponent(currency)}`);
-  if (!response.ok) {
-    throw new Error("Unable to load projects.");
-  }
-  const payload = await response.json();
+  const payload = await parseJsonResponse(response);
   return payload.projects || [];
 };
 
@@ -206,10 +212,7 @@ form.addEventListener("submit", async (event) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const body = await response.json();
-    if (!response.ok) {
-      throw new Error(body.error || "Unable to save project.");
-    }
+    await parseJsonResponse(response);
     form.reset();
     projectCurrencySelect.value = dashboardCurrencySelect.value;
     milestonesContainer.innerHTML = "";
@@ -239,10 +242,7 @@ shareForm.addEventListener("submit", async (event) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const body = await response.json();
-    if (!response.ok) {
-      throw new Error(body.error || "Unable to generate email draft.");
-    }
+    const body = await parseJsonResponse(response);
     shareResult.innerHTML = `
       <p>Draft ready for: <strong>${body.recipients}</strong> (${body.currency})</p>
       <a href="${body.mailto_link}">Open email draft</a>

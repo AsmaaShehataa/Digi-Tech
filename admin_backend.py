@@ -3,14 +3,17 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, datetime
+from functools import wraps
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from flask import Flask, Response, abort, jsonify, render_template, request, send_from_directory
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -21,6 +24,9 @@ DB_PATH = DATA_DIR / "admin_dashboard.db"
 ALLOWED_STATUSES = {"planned", "in_progress", "on_hold", "completed", "cancelled"}
 ALLOWED_CURRENCIES = {"USD", "EGP"}
 CURRENCY_SYMBOLS = {"USD": "$", "EGP": "E£"}
+DEFAULT_ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@digi-tech.local").strip().lower()
+DEFAULT_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMe123!")
+DEFAULT_ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH") or generate_password_hash(DEFAULT_ADMIN_PASSWORD)
 
 
 @dataclass
@@ -150,12 +156,59 @@ class DashboardRepository:
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
                 );
+
+                CREATE TABLE IF NOT EXISTS admin_users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    last_login_at TEXT
+                );
                 """
             )
             columns = {row["name"] for row in conn.execute("PRAGMA table_info(projects)").fetchall()}
             if "currency" not in columns:
                 conn.execute("ALTER TABLE projects ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'")
             conn.execute("UPDATE projects SET currency = 'USD' WHERE currency IS NULL OR currency NOT IN ('USD', 'EGP')")
+            self._ensure_default_admin_user(conn)
+
+    def _ensure_default_admin_user(self, conn: sqlite3.Connection) -> None:
+        existing = conn.execute("SELECT id FROM admin_users WHERE email = ?", (DEFAULT_ADMIN_EMAIL,)).fetchone()
+        if existing:
+            return
+        conn.execute(
+            """
+            INSERT INTO admin_users (email, password_hash, is_active)
+            VALUES (?, ?, 1)
+            """,
+            (DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD_HASH),
+        )
+
+    def authenticate_admin(self, email: str, password: str) -> dict[str, Any] | None:
+        normalized_email = email.strip().lower()
+        if not normalized_email or not password:
+            return None
+
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT id, email, password_hash, is_active
+                FROM admin_users
+                WHERE email = ?
+                """,
+                (normalized_email,),
+            ).fetchone()
+            if row is None or not bool(row["is_active"]):
+                return None
+            if not check_password_hash(row["password_hash"], password):
+                return None
+
+            conn.execute(
+                "UPDATE admin_users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (row["id"],),
+            )
+            return {"id": row["id"], "email": row["email"]}
 
     def create_project(self, payload: dict[str, Any]) -> dict[str, Any]:
         status = payload["status"]
@@ -439,6 +492,43 @@ def _serialize_for_csv(projects: list[dict[str, Any]]) -> str:
 
 repo = DashboardRepository(DB_PATH)
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"), static_folder=str(BASE_DIR / "static"))
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-only-change-this-secret")
+
+
+def _is_logged_in() -> bool:
+    return bool(session.get("admin_user_id"))
+
+
+def _safe_next_url(raw_next: str | None) -> str:
+    if raw_next and raw_next.startswith("/") and not raw_next.startswith("//"):
+        return raw_next
+    return url_for("admin_dashboard")
+
+
+def _log_in_user(user: dict[str, Any]) -> None:
+    session.clear()
+    session["admin_user_id"] = user["id"]
+    session["admin_email"] = user["email"]
+
+
+def _require_admin_api(view_func):
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        if not _is_logged_in():
+            return jsonify({"error": "Authentication required"}), 401
+        return view_func(*args, **kwargs)
+
+    return wrapped
+
+
+def _require_admin_web(view_func):
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        if not _is_logged_in():
+            return redirect(url_for("admin_login", next=request.full_path))
+        return view_func(*args, **kwargs)
+
+    return wrapped
 
 
 @app.route("/")
@@ -458,11 +548,59 @@ def site_assets(asset: str) -> Response:
 
 
 @app.route("/admin")
+@_require_admin_web
 def admin_dashboard() -> str:
-    return render_template("admin_dashboard.html")
+    return render_template("admin_dashboard.html", admin_email=session.get("admin_email"))
+
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login() -> str | Response:
+    if _is_logged_in():
+        return redirect(url_for("admin_dashboard"))
+
+    error = ""
+    prefill_email = DEFAULT_ADMIN_EMAIL
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        prefill_email = email or prefill_email
+        user = repo.authenticate_admin(email, password)
+        if user:
+            _log_in_user(user)
+            return redirect(_safe_next_url(request.args.get("next")))
+        error = "Invalid email or password."
+
+    return render_template("admin_login.html", error=error, prefill_email=prefill_email)
+
+
+@app.route("/admin/logout", methods=["POST"])
+@_require_admin_web
+def admin_logout() -> Response:
+    session.clear()
+    return redirect(url_for("admin_login"))
+
+
+@app.route("/api/admin/login", methods=["POST"])
+def api_admin_login() -> Response:
+    payload = request.get_json(silent=True) or {}
+    email = payload.get("email", "")
+    password = payload.get("password", "")
+    user = repo.authenticate_admin(email, password)
+    if not user:
+        return jsonify({"error": "Invalid email or password."}), 401
+    _log_in_user(user)
+    return jsonify({"message": "Logged in successfully.", "admin_email": user["email"]})
+
+
+@app.route("/api/admin/logout", methods=["POST"])
+@_require_admin_api
+def api_admin_logout() -> Response:
+    session.clear()
+    return jsonify({"message": "Logged out."})
 
 
 @app.route("/api/admin/projects", methods=["GET"])
+@_require_admin_api
 def list_projects() -> Response:
     try:
         currency_filter = _resolve_currency_filter(request.args.get("currency"))
@@ -473,6 +611,7 @@ def list_projects() -> Response:
 
 
 @app.route("/api/admin/projects", methods=["POST"])
+@_require_admin_api
 def create_project() -> Response:
     payload = request.get_json(silent=True) or {}
     required_fields = [
@@ -499,6 +638,7 @@ def create_project() -> Response:
 
 
 @app.route("/api/admin/projects/<int:project_id>", methods=["GET"])
+@_require_admin_api
 def get_project(project_id: int) -> Response:
     try:
         project = repo.get_project(project_id)
@@ -508,6 +648,7 @@ def get_project(project_id: int) -> Response:
 
 
 @app.route("/api/admin/projects/<int:project_id>", methods=["PATCH"])
+@_require_admin_api
 def patch_project(project_id: int) -> Response:
     payload = request.get_json(silent=True) or {}
     try:
@@ -520,6 +661,7 @@ def patch_project(project_id: int) -> Response:
 
 
 @app.route("/api/admin/overview", methods=["GET"])
+@_require_admin_api
 def get_overview() -> Response:
     try:
         currency_filter = _resolve_currency_filter(request.args.get("currency"), default="USD")
@@ -532,6 +674,7 @@ def get_overview() -> Response:
 
 
 @app.route("/api/admin/export.csv", methods=["GET"])
+@_require_admin_api
 def export_csv() -> Response:
     try:
         currency_filter = _resolve_currency_filter(request.args.get("currency"))
@@ -548,6 +691,7 @@ def export_csv() -> Response:
 
 
 @app.route("/api/admin/export.json", methods=["GET"])
+@_require_admin_api
 def export_json() -> Response:
     try:
         currency_filter = _resolve_currency_filter(request.args.get("currency"))
@@ -570,6 +714,7 @@ def export_json() -> Response:
 
 
 @app.route("/api/admin/share-report", methods=["POST"])
+@_require_admin_api
 def share_report() -> Response:
     payload = request.get_json(silent=True) or {}
     client_email = payload.get("client_email", "").strip()
