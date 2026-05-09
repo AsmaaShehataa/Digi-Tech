@@ -3,14 +3,17 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, datetime
+from functools import wraps
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from flask import Flask, Response, abort, jsonify, render_template, request, send_from_directory
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -19,6 +22,11 @@ DB_PATH = DATA_DIR / "admin_dashboard.db"
 
 
 ALLOWED_STATUSES = {"planned", "in_progress", "on_hold", "completed", "cancelled"}
+ALLOWED_CURRENCIES = {"USD", "EGP"}
+CURRENCY_SYMBOLS = {"USD": "$", "EGP": "E£"}
+DEFAULT_ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@digi-tech.local").strip().lower()
+DEFAULT_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMe123!")
+DEFAULT_ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH") or generate_password_hash(DEFAULT_ADMIN_PASSWORD)
 
 
 @dataclass
@@ -47,6 +55,21 @@ def _parse_date(raw_value: str) -> date:
 def _coerce_amount(raw_value: Any) -> float:
     amount = float(raw_value)
     return round(amount, 2)
+
+
+def _normalize_currency(raw_value: Any) -> str:
+    currency = str(raw_value or "").strip().upper()
+    if currency not in ALLOWED_CURRENCIES:
+        raise ValueError(f"Invalid currency: {currency}. Allowed values are USD or EGP.")
+    return currency
+
+
+def _resolve_currency_filter(raw_value: Any, default: str | None = None) -> str | None:
+    if raw_value in (None, ""):
+        raw_value = default
+    if raw_value in (None, ""):
+        return None
+    return _normalize_currency(raw_value)
 
 
 def _calculate_project_metrics(project: dict[str, Any], milestones: list[dict[str, Any]]) -> dict[str, Any]:
@@ -111,6 +134,7 @@ class DashboardRepository:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     client_name TEXT NOT NULL,
                     project_name TEXT NOT NULL,
+                    currency TEXT NOT NULL DEFAULT 'USD',
                     total_price REAL NOT NULL CHECK (total_price >= 0),
                     paid_amount REAL NOT NULL DEFAULT 0 CHECK (paid_amount >= 0),
                     start_date TEXT NOT NULL,
@@ -132,13 +156,65 @@ class DashboardRepository:
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
                 );
+
+                CREATE TABLE IF NOT EXISTS admin_users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    last_login_at TEXT
+                );
                 """
             )
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(projects)").fetchall()}
+            if "currency" not in columns:
+                conn.execute("ALTER TABLE projects ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'")
+            conn.execute("UPDATE projects SET currency = 'USD' WHERE currency IS NULL OR currency NOT IN ('USD', 'EGP')")
+            self._ensure_default_admin_user(conn)
+
+    def _ensure_default_admin_user(self, conn: sqlite3.Connection) -> None:
+        existing = conn.execute("SELECT id FROM admin_users WHERE email = ?", (DEFAULT_ADMIN_EMAIL,)).fetchone()
+        if existing:
+            return
+        conn.execute(
+            """
+            INSERT INTO admin_users (email, password_hash, is_active)
+            VALUES (?, ?, 1)
+            """,
+            (DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD_HASH),
+        )
+
+    def authenticate_admin(self, email: str, password: str) -> dict[str, Any] | None:
+        normalized_email = email.strip().lower()
+        if not normalized_email or not password:
+            return None
+
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT id, email, password_hash, is_active
+                FROM admin_users
+                WHERE email = ?
+                """,
+                (normalized_email,),
+            ).fetchone()
+            if row is None or not bool(row["is_active"]):
+                return None
+            if not check_password_hash(row["password_hash"], password):
+                return None
+
+            conn.execute(
+                "UPDATE admin_users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (row["id"],),
+            )
+            return {"id": row["id"], "email": row["email"]}
 
     def create_project(self, payload: dict[str, Any]) -> dict[str, Any]:
         status = payload["status"]
         if status not in ALLOWED_STATUSES:
             raise ValueError(f"Invalid status: {status}")
+        currency = _normalize_currency(payload.get("currency", "USD"))
 
         total_price = _coerce_amount(payload["total_price"])
         paid_amount = _coerce_amount(payload.get("paid_amount", 0))
@@ -161,12 +237,13 @@ class DashboardRepository:
             cursor = conn.execute(
                 """
                 INSERT INTO projects (
-                    client_name, project_name, total_price, paid_amount, start_date, deadline, status, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payload["client_name"].strip(),
                     payload["project_name"].strip(),
+                    currency,
                     total_price,
                     paid_amount,
                     payload["start_date"],
@@ -217,6 +294,10 @@ class DashboardRepository:
             _parse_date(payload["deadline"])
             updates.append("deadline = ?")
             values.append(payload["deadline"])
+        if "currency" in payload:
+            currency = _normalize_currency(payload["currency"])
+            updates.append("currency = ?")
+            values.append(currency)
 
         if not updates:
             return self.get_project(project_id)
@@ -259,7 +340,7 @@ class DashboardRepository:
         with self._connect() as conn:
             row = conn.execute(
                 """
-                SELECT id, client_name, project_name, total_price, paid_amount, start_date, deadline, status, notes
+                SELECT id, client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes
                 FROM projects
                 WHERE id = ?
                 """,
@@ -272,6 +353,7 @@ class DashboardRepository:
             "id": row["id"],
             "client_name": row["client_name"],
             "project_name": row["project_name"],
+            "currency": row["currency"],
             "total_price": round(float(row["total_price"]), 2),
             "paid_amount": round(float(row["paid_amount"]), 2),
             "start_date": row["start_date"],
@@ -285,15 +367,16 @@ class DashboardRepository:
         project["metrics"] = metrics
         return project
 
-    def list_projects(self) -> list[dict[str, Any]]:
+    def list_projects(self, currency_filter: str | None = None) -> list[dict[str, Any]]:
+        query = "SELECT id FROM projects"
+        params: tuple[Any, ...] = ()
+        if currency_filter:
+            query += " WHERE currency = ?"
+            params = (currency_filter,)
+        query += " ORDER BY deadline ASC, id DESC"
+
         with self._connect() as conn:
-            rows = conn.execute(
-                """
-                SELECT id
-                FROM projects
-                ORDER BY deadline ASC, id DESC
-                """
-            ).fetchall()
+            rows = conn.execute(query, params).fetchall()
 
         return [self.get_project(row["id"]) for row in rows]
 
@@ -371,6 +454,7 @@ def _serialize_for_csv(projects: list[dict[str, Any]]) -> str:
             "Project ID",
             "Client Name",
             "Project Name",
+            "Currency",
             "Status",
             "Start Date",
             "Deadline",
@@ -390,6 +474,7 @@ def _serialize_for_csv(projects: list[dict[str, Any]]) -> str:
                 project["id"],
                 project["client_name"],
                 project["project_name"],
+                project["currency"],
                 metrics["effective_status"],
                 project["start_date"],
                 project["deadline"],
@@ -407,6 +492,43 @@ def _serialize_for_csv(projects: list[dict[str, Any]]) -> str:
 
 repo = DashboardRepository(DB_PATH)
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"), static_folder=str(BASE_DIR / "static"))
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-only-change-this-secret")
+
+
+def _is_logged_in() -> bool:
+    return bool(session.get("admin_user_id"))
+
+
+def _safe_next_url(raw_next: str | None) -> str:
+    if raw_next and raw_next.startswith("/") and not raw_next.startswith("//"):
+        return raw_next
+    return url_for("admin_dashboard")
+
+
+def _log_in_user(user: dict[str, Any]) -> None:
+    session.clear()
+    session["admin_user_id"] = user["id"]
+    session["admin_email"] = user["email"]
+
+
+def _require_admin_api(view_func):
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        if not _is_logged_in():
+            return jsonify({"error": "Authentication required"}), 401
+        return view_func(*args, **kwargs)
+
+    return wrapped
+
+
+def _require_admin_web(view_func):
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        if not _is_logged_in():
+            return redirect(url_for("admin_login", next=request.full_path))
+        return view_func(*args, **kwargs)
+
+    return wrapped
 
 
 @app.route("/")
@@ -426,17 +548,70 @@ def site_assets(asset: str) -> Response:
 
 
 @app.route("/admin")
+@_require_admin_web
 def admin_dashboard() -> str:
-    return render_template("admin_dashboard.html")
+    return render_template("admin_dashboard.html", admin_email=session.get("admin_email"))
+
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login() -> str | Response:
+    if _is_logged_in():
+        return redirect(url_for("admin_dashboard"))
+
+    error = ""
+    prefill_email = DEFAULT_ADMIN_EMAIL
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        prefill_email = email or prefill_email
+        user = repo.authenticate_admin(email, password)
+        if user:
+            _log_in_user(user)
+            return redirect(_safe_next_url(request.args.get("next")))
+        error = "Invalid email or password."
+
+    return render_template("admin_login.html", error=error, prefill_email=prefill_email)
+
+
+@app.route("/admin/logout", methods=["POST"])
+@_require_admin_web
+def admin_logout() -> Response:
+    session.clear()
+    return redirect(url_for("admin_login"))
+
+
+@app.route("/api/admin/login", methods=["POST"])
+def api_admin_login() -> Response:
+    payload = request.get_json(silent=True) or {}
+    email = payload.get("email", "")
+    password = payload.get("password", "")
+    user = repo.authenticate_admin(email, password)
+    if not user:
+        return jsonify({"error": "Invalid email or password."}), 401
+    _log_in_user(user)
+    return jsonify({"message": "Logged in successfully.", "admin_email": user["email"]})
+
+
+@app.route("/api/admin/logout", methods=["POST"])
+@_require_admin_api
+def api_admin_logout() -> Response:
+    session.clear()
+    return jsonify({"message": "Logged out."})
 
 
 @app.route("/api/admin/projects", methods=["GET"])
+@_require_admin_api
 def list_projects() -> Response:
-    projects = repo.list_projects()
-    return jsonify({"projects": projects})
+    try:
+        currency_filter = _resolve_currency_filter(request.args.get("currency"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    projects = repo.list_projects(currency_filter)
+    return jsonify({"projects": projects, "currency_filter": currency_filter})
 
 
 @app.route("/api/admin/projects", methods=["POST"])
+@_require_admin_api
 def create_project() -> Response:
     payload = request.get_json(silent=True) or {}
     required_fields = [
@@ -463,6 +638,7 @@ def create_project() -> Response:
 
 
 @app.route("/api/admin/projects/<int:project_id>", methods=["GET"])
+@_require_admin_api
 def get_project(project_id: int) -> Response:
     try:
         project = repo.get_project(project_id)
@@ -472,6 +648,7 @@ def get_project(project_id: int) -> Response:
 
 
 @app.route("/api/admin/projects/<int:project_id>", methods=["PATCH"])
+@_require_admin_api
 def patch_project(project_id: int) -> Response:
     payload = request.get_json(silent=True) or {}
     try:
@@ -484,36 +661,60 @@ def patch_project(project_id: int) -> Response:
 
 
 @app.route("/api/admin/overview", methods=["GET"])
+@_require_admin_api
 def get_overview() -> Response:
-    projects = repo.list_projects()
+    try:
+        currency_filter = _resolve_currency_filter(request.args.get("currency"), default="USD")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    projects = repo.list_projects(currency_filter)
     overview = _build_overview(projects)
+    overview["currency"] = currency_filter
     return jsonify(overview)
 
 
 @app.route("/api/admin/export.csv", methods=["GET"])
+@_require_admin_api
 def export_csv() -> Response:
-    projects = repo.list_projects()
+    try:
+        currency_filter = _resolve_currency_filter(request.args.get("currency"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    projects = repo.list_projects(currency_filter)
     csv_payload = _serialize_for_csv(projects)
+    file_suffix = currency_filter.lower() if currency_filter else "all-currencies"
     return Response(
         csv_payload,
         mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=admin-project-financial-report.csv"},
+        headers={"Content-Disposition": f"attachment; filename=admin-project-financial-report-{file_suffix}.csv"},
     )
 
 
 @app.route("/api/admin/export.json", methods=["GET"])
+@_require_admin_api
 def export_json() -> Response:
-    projects = repo.list_projects()
+    try:
+        currency_filter = _resolve_currency_filter(request.args.get("currency"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    projects = repo.list_projects(currency_filter)
     overview = _build_overview(projects)
-    payload = {"generated_at": datetime.utcnow().isoformat() + "Z", "overview": overview, "projects": projects}
+    payload = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "currency_filter": currency_filter,
+        "overview": overview,
+        "projects": projects,
+    }
+    file_suffix = currency_filter.lower() if currency_filter else "all-currencies"
     return Response(
         json.dumps(payload, indent=2),
         mimetype="application/json",
-        headers={"Content-Disposition": "attachment; filename=admin-project-financial-report.json"},
+        headers={"Content-Disposition": f"attachment; filename=admin-project-financial-report-{file_suffix}.json"},
     )
 
 
 @app.route("/api/admin/share-report", methods=["POST"])
+@_require_admin_api
 def share_report() -> Response:
     payload = request.get_json(silent=True) or {}
     client_email = payload.get("client_email", "").strip()
@@ -521,20 +722,26 @@ def share_report() -> Response:
     if not client_email and not admin_email:
         return jsonify({"error": "Provide at least one recipient email."}), 400
 
-    projects = repo.list_projects()
+    try:
+        currency_filter = _resolve_currency_filter(payload.get("currency"), default="USD")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    projects = repo.list_projects(currency_filter)
     overview = _build_overview(projects)
     totals = overview["totals"]
-    subject = "Digi-Tech Project & Financial Status Report"
+    currency_symbol = CURRENCY_SYMBOLS[currency_filter] if currency_filter else ""
+    subject = f"Digi-Tech Project & Financial Status Report ({currency_filter})"
     body = (
         "Hello,\n\n"
-        "Here is the latest operational and financial summary:\n"
+        f"Here is the latest operational and financial summary ({currency_filter}):\n"
         f"- Total projects: {totals['total_projects']}\n"
         f"- Active projects: {totals['active_projects']}\n"
         f"- Completed projects: {totals['completed_projects']}\n"
         f"- Pending payments: {totals['pending_payments_count']} items "
-        f"(${totals['pending_payments_amount']:.2f})\n"
+        f"({currency_symbol}{totals['pending_payments_amount']:.2f})\n"
         f"- Overdue payments: {totals['overdue_payments_count']} items "
-        f"(${totals['overdue_payments_amount']:.2f})\n"
+        f"({currency_symbol}{totals['overdue_payments_amount']:.2f})\n"
         f"- Upcoming deadlines (14d): {totals['upcoming_deadlines_count']}\n"
         f"- Portfolio payment progress: {totals['portfolio_payment_progress']:.2f}%\n\n"
         "Please review the exported CSV/JSON report from the admin dashboard for full details.\n\n"
@@ -545,7 +752,15 @@ def share_report() -> Response:
     subject_value = quote(request.args.get("subject", subject))
     body_value = quote(body)
     mailto_link = f"mailto:{recipients}?subject={subject_value}&body={body_value}"
-    return jsonify({"mailto_link": mailto_link, "subject": subject, "body": body, "recipients": recipients})
+    return jsonify(
+        {
+            "mailto_link": mailto_link,
+            "subject": subject,
+            "body": body,
+            "recipients": recipients,
+            "currency": currency_filter,
+        }
+    )
 
 
 if __name__ == "__main__":
