@@ -13,6 +13,12 @@ The site is designed for a seamless user experience, global accessibility, and s
 - `index.html` — Semantic page layout and content sections
 - `styles.css` — Responsive, minimalist visual design system
 - `script.js` — Multilingual UI + AI-style recommendation interaction
+- `admin_backend.py` — Flask + SQLite backend for admin route and APIs
+- `templates/admin_login.html` — Secure admin login page (email/password)
+- `templates/admin_dashboard.html` — Admin project/payment dashboard
+- `static/admin-auth.css` — Login page styling
+- `static/admin.css` — Dashboard styling
+- `static/admin.js` — Dashboard interactions (including Edit/Delete actions)
 
 ## Included Features
 
@@ -61,7 +67,7 @@ Recommended production setup:
 
 ## Run Locally
 
-Because this is a static site, you can run it with any simple HTTP server:
+### Public website (static)
 
 ```bash
 python3 -m http.server 8080
@@ -70,6 +76,36 @@ python3 -m http.server 8080
 Then open:
 
 `http://localhost:8080`
+
+### Admin dashboard (with project/payment tracking)
+
+Install dependencies:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+Run backend:
+
+```bash
+python3 admin_backend.py
+```
+
+Then open:
+
+- `http://localhost:5000/admin/login`
+- `http://localhost:5000/admin`
+
+Default local admin credentials:
+
+- Email: `admin@digi-tech.local`
+- Password: `ChangeMe123!`
+
+Set production credentials via env vars:
+
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_HASH`)
+- `FLASK_SECRET_KEY`
 
 ## Customization Notes
 
