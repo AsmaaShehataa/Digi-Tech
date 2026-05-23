@@ -19,6 +19,7 @@ const shareForm = document.getElementById("share-form");
 const shareResult = document.getElementById("share-result");
 const dashboardCurrencySelect = document.getElementById("dashboard-currency");
 const exportCsvLink = document.getElementById("export-csv-link");
+const exportJsonLink = document.getElementById("export-json-link");
 
 let cachedProjects = [];
 
@@ -62,9 +63,10 @@ const parseJson = async (response) => {
 
 const updateExportLink = () => {
   const currency = dashboardCurrencySelect.value;
-  exportCsvLink.href = currency
-    ? `/api/admin/export.csv?currency=${encodeURIComponent(currency)}`
-    : "/api/admin/export.csv";
+  exportCsvLink.href = currency ? `/api/admin/export.csv?currency=${encodeURIComponent(currency)}` : "/api/admin/export.csv";
+  exportJsonLink.href = currency
+    ? `/api/admin/export.json?currency=${encodeURIComponent(currency)}`
+    : "/api/admin/export.json";
 };
 
 const resetFormToCreateMode = () => {

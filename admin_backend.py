@@ -7,6 +7,7 @@ import os
 import sqlite3
 from datetime import date, datetime
 from functools import wraps
+from ipaddress import ip_address, ip_network
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -22,10 +23,24 @@ DB_PATH = DATA_DIR / "admin_dashboard.db"
 ALLOWED_STATUSES = {"planned", "in_progress", "on_hold", "completed", "cancelled"}
 ALLOWED_CURRENCIES = {"USD", "EGP"}
 CURRENCY_SYMBOLS = {"USD": "$", "EGP": "E£"}
+ALLOWED_DEPLOY_TARGETS = {"public", "admin_internal"}
 
 DEFAULT_ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@digi-tech.local").strip().lower()
 DEFAULT_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMe123!")
 DEFAULT_ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH") or generate_password_hash(DEFAULT_ADMIN_PASSWORD)
+APP_DEPLOY_TARGET = os.environ.get("APP_DEPLOY_TARGET", "public").strip().lower()
+if APP_DEPLOY_TARGET not in ALLOWED_DEPLOY_TARGETS:
+    APP_DEPLOY_TARGET = "public"
+ADMIN_MODULE_ENABLED = APP_DEPLOY_TARGET == "admin_internal"
+
+_raw_allowed_admin_ips = os.environ.get("ADMIN_ALLOWED_IPS", "").strip()
+ADMIN_ALLOWED_IP_NETWORKS = []
+for raw_entry in [entry.strip() for entry in _raw_allowed_admin_ips.split(",") if entry.strip()]:
+    try:
+        ADMIN_ALLOWED_IP_NETWORKS.append(ip_network(raw_entry, strict=False))
+    except ValueError:
+        # Invalid entries are ignored intentionally so bad config doesn't crash the app.
+        continue
 
 
 def _today() -> date:
@@ -176,6 +191,15 @@ class DashboardRepository:
                     is_active INTEGER NOT NULL DEFAULT 1,
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     last_login_at TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS inquiries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    full_name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    company TEXT,
+                    message TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
                 """
             )
@@ -355,6 +379,34 @@ class DashboardRepository:
         with self._connect() as conn:
             conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
 
+    def create_inquiry(self, payload: dict[str, Any]) -> dict[str, Any]:
+        full_name = str(payload.get("full_name", "")).strip()
+        email = str(payload.get("email", "")).strip().lower()
+        company = str(payload.get("company", "")).strip() or None
+        message = str(payload.get("message", "")).strip()
+
+        if not full_name or not email or not message:
+            raise ValueError("full_name, email, and message are required.")
+
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                INSERT INTO inquiries (full_name, email, company, message)
+                VALUES (?, ?, ?, ?)
+                """,
+                (full_name, email, company, message),
+            )
+            inquiry_id = cur.lastrowid
+            row = conn.execute(
+                """
+                SELECT id, full_name, email, company, message, created_at
+                FROM inquiries
+                WHERE id = ?
+                """,
+                (inquiry_id,),
+            ).fetchone()
+        return dict(row)
+
 
 def _build_overview(projects: list[dict[str, Any]], currency: str | None) -> dict[str, Any]:
     totals = {
@@ -467,9 +519,31 @@ def _safe_next_url(raw_next: str | None) -> str:
     return url_for("admin_dashboard")
 
 
+def _extract_client_ip() -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "").strip()
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or ""
+
+
+def _is_admin_ip_allowed() -> bool:
+    if not ADMIN_ALLOWED_IP_NETWORKS:
+        return True
+    client_ip_raw = _extract_client_ip()
+    try:
+        client_ip = ip_address(client_ip_raw)
+    except ValueError:
+        return False
+    return any(client_ip in network for network in ADMIN_ALLOWED_IP_NETWORKS)
+
+
 def _require_admin_web(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
+        if not ADMIN_MODULE_ENABLED:
+            abort(404)
+        if not _is_admin_ip_allowed():
+            abort(403)
         if not _is_logged_in():
             return redirect(url_for("admin_login", next=request.full_path))
         return view(*args, **kwargs)
@@ -480,6 +554,10 @@ def _require_admin_web(view):
 def _require_admin_api(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
+        if not ADMIN_MODULE_ENABLED:
+            return jsonify({"error": "Not found"}), 404
+        if not _is_admin_ip_allowed():
+            return jsonify({"error": "Forbidden"}), 403
         if not _is_logged_in():
             return jsonify({"error": "Authentication required"}), 401
         return view(*args, **kwargs)
@@ -503,8 +581,34 @@ def serve_asset(asset: str) -> Response:
     abort(404)
 
 
+@app.route("/api/public/health", methods=["GET"])
+def public_health() -> Response:
+    return jsonify(
+        {
+            "status": "ok",
+            "app_deploy_target": APP_DEPLOY_TARGET,
+            "admin_module_enabled": ADMIN_MODULE_ENABLED,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+        }
+    )
+
+
+@app.route("/api/public/inquiries", methods=["POST"])
+def public_create_inquiry() -> Response:
+    payload = request.get_json(silent=True) or {}
+    try:
+        inquiry = repo.create_inquiry(payload)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"inquiry": inquiry}), 201
+
+
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login() -> str | Response:
+    if not ADMIN_MODULE_ENABLED:
+        abort(404)
+    if not _is_admin_ip_allowed():
+        abort(403)
     if _is_logged_in():
         return redirect(url_for("admin_dashboard"))
 
@@ -536,6 +640,29 @@ def admin_logout() -> Response:
 @_require_admin_web
 def admin_dashboard() -> str:
     return render_template("admin_dashboard.html", admin_email=session.get("admin_email"))
+
+
+@app.route("/api/admin/login", methods=["POST"])
+def api_admin_login() -> Response:
+    if not ADMIN_MODULE_ENABLED:
+        return jsonify({"error": "Not found"}), 404
+    if not _is_admin_ip_allowed():
+        return jsonify({"error": "Forbidden"}), 403
+    payload = request.get_json(silent=True) or {}
+    user = repo.authenticate_admin(payload.get("email", ""), payload.get("password", ""))
+    if not user:
+        return jsonify({"error": "Invalid email or password"}), 401
+    session.clear()
+    session["admin_user_id"] = user["id"]
+    session["admin_email"] = user["email"]
+    return jsonify({"message": "Logged in successfully", "admin_email": user["email"]})
+
+
+@app.route("/api/admin/logout", methods=["POST"])
+@_require_admin_api
+def api_admin_logout() -> Response:
+    session.clear()
+    return jsonify({"message": "Logged out"})
 
 
 @app.route("/api/admin/projects", methods=["GET"])
@@ -606,6 +733,28 @@ def api_export_csv() -> Response:
     )
 
 
+@app.route("/api/admin/export.json", methods=["GET"])
+@_require_admin_api
+def api_export_json() -> Response:
+    currency = request.args.get("currency")
+    currency_filter = _normalize_currency(currency) if currency else None
+    projects = repo.list_projects(currency_filter)
+    overview = _build_overview(projects, currency_filter)
+    payload = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "app_deploy_target": APP_DEPLOY_TARGET,
+        "currency_filter": currency_filter,
+        "overview": overview,
+        "projects": projects,
+    }
+    suffix = currency_filter.lower() if currency_filter else "all-currencies"
+    return Response(
+        json.dumps(payload, indent=2),
+        mimetype="application/json",
+        headers={"Content-Disposition": f"attachment; filename=admin-project-report-{suffix}.json"},
+    )
+
+
 @app.route("/api/admin/share-report", methods=["POST"])
 @_require_admin_api
 def api_share_report() -> Response:
@@ -640,4 +789,6 @@ def api_share_report() -> Response:
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app_port = int(os.environ.get("APP_PORT", "5000"))
+    debug_enabled = os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.run(debug=debug_enabled, port=app_port)

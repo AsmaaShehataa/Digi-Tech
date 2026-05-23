@@ -19,6 +19,8 @@ The site is designed for a seamless user experience, global accessibility, and s
 - `static/admin-auth.css` — Login page styling
 - `static/admin.css` — Dashboard styling
 - `static/admin.js` — Dashboard interactions (including Edit/Delete actions)
+- `deploy/hostinger/*` — Hostinger VPS env, Nginx, and systemd examples
+- `docs/hostinger-deployment.md` — Public/internal split deployment guide
 
 ## Included Features
 
@@ -96,6 +98,13 @@ Then open:
 - `http://localhost:5000/admin/login`
 - `http://localhost:5000/admin`
 
+> Note: admin routes are available only when `APP_DEPLOY_TARGET=admin_internal`.
+> For local admin testing:
+>
+> ```bash
+> APP_DEPLOY_TARGET=admin_internal APP_PORT=5000 python3 admin_backend.py
+> ```
+
 Default local admin credentials:
 
 - Email: `admin@digi-tech.local`
@@ -106,6 +115,43 @@ Set production credentials via env vars:
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_HASH`)
 - `FLASK_SECRET_KEY`
+
+### Deployment modes (important)
+
+`admin_backend.py` supports two deployment targets:
+
+- `APP_DEPLOY_TARGET=public`
+  - Admin module disabled (`/admin` and `/api/admin/*` return 404)
+  - Exposes public website + public API routes only
+- `APP_DEPLOY_TARGET=admin_internal`
+  - Admin module enabled for internal staff use
+  - Supports login + admin dashboard + admin APIs
+
+Public API routes available in `public` mode:
+
+- `GET /api/public/health`
+- `POST /api/public/inquiries`
+
+## Hostinger VPS deployment (public + internal split)
+
+Use two app processes and two subdomains:
+
+- `yourdomain.com` → public app (`APP_DEPLOY_TARGET=public`, port `5000`)
+- `admin.yourdomain.com` → internal admin app (`APP_DEPLOY_TARGET=admin_internal`, port `5001`)
+
+Reference files:
+
+- `deploy/hostinger/public.env.example`
+- `deploy/hostinger/admin.env.example`
+- `deploy/hostinger/nginx-public.conf`
+- `deploy/hostinger/nginx-admin-internal.conf`
+- `deploy/hostinger/systemd/digi-tech-public.service`
+- `deploy/hostinger/systemd/digi-tech-admin.service`
+
+Internal admin protection should use both:
+
+1. Nginx IP allowlist (`allow`/`deny`) on `admin.yourdomain.com`
+2. App-level session auth (email/password)
 
 ## Customization Notes
 
