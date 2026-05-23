@@ -17,7 +17,7 @@
       <section class="auth-card">
         <p class="eyebrow">Admin Access</p>
         <h1>Sign in to Dashboard</h1>
-        <p class="helper">Use your admin email and password to access project and payment operations.</p>
+        <p class="helper">Manage projects, payments, and milestones securely.</p>
 
         {% if error %}
         <p class="error-message" role="alert">{{ error }}</p>
@@ -26,11 +26,11 @@
         <form method="post" action="{{ url_for('admin_login', next=request.args.get('next', '')) }}" class="auth-form">
           <label>
             Email
-            <input type="email" name="email" required value="{{ prefill_email }}" />
+            <input name="email" type="email" required value="{{ prefill_email }}" />
           </label>
           <label>
             Password
-            <input type="password" name="password" required autocomplete="current-password" />
+            <input name="password" type="password" required autocomplete="current-password" />
           </label>
           <button type="submit">Sign in</button>
         </form>

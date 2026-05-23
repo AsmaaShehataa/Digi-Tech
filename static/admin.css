@@ -140,6 +140,12 @@ h1 {
   font-size: 0.85rem;
 }
 
+.button.danger {
+  border-color: rgba(255, 109, 122, 0.6);
+  color: #ffdbe1;
+  background: rgba(255, 109, 122, 0.1);
+}
+
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -280,6 +286,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 0.8rem;
+  flex-wrap: wrap;
 }
 
 #form-feedback {
@@ -342,7 +349,7 @@ textarea {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1080px;
+  min-width: 1150px;
 }
 
 th,
@@ -399,7 +406,8 @@ th {
   color: var(--danger);
 }
 
-.status-cancelled {
+.status-cancelled,
+.status-on_hold {
   color: #b7bed1;
 }
 
@@ -430,6 +438,12 @@ th {
 
 .empty-state {
   color: var(--muted);
+}
+
+.actions-cell {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 1200px) {

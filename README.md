@@ -14,12 +14,13 @@ The site is designed for a seamless user experience, global accessibility, and s
 - `styles.css` — Responsive, minimalist visual design system
 - `script.js` — Multilingual UI + AI-style recommendation interaction
 - `admin_backend.py` — Flask + SQLite backend for admin route and APIs
-- `templates/admin_dashboard.html` — Admin dashboard UI
-- `templates/admin_login.html` — Admin authentication page
-- `static/admin.css` — Admin dashboard styling
-- `static/admin-auth.css` — Admin login styling
-- `static/admin.js` — Admin dashboard client logic
-- `docs/admin-dashboard.md` — Architecture, schema, and route documentation
+- `templates/admin_login.html` — Secure admin login page (email/password)
+- `templates/admin_dashboard.html` — Admin project/payment dashboard
+- `static/admin-auth.css` — Login page styling
+- `static/admin.css` — Dashboard styling
+- `static/admin.js` — Dashboard interactions (including Edit/Delete actions)
+- `deploy/hostinger/*` — Hostinger VPS env, Nginx, and systemd examples
+- `docs/hostinger-deployment.md` — Public/internal split deployment guide
 
 ## Included Features
 
@@ -68,7 +69,7 @@ Recommended production setup:
 
 ## Run Locally
 
-### Public website (static only)
+### Public website (static)
 
 ```bash
 python3 -m http.server 8080
@@ -78,7 +79,7 @@ Then open:
 
 `http://localhost:8080`
 
-### Admin dashboard (with database + API)
+### Admin dashboard (with project/payment tracking)
 
 Install dependencies:
 
@@ -94,30 +95,63 @@ python3 admin_backend.py
 
 Then open:
 
-- `http://localhost:5000/` (website)
-- `http://localhost:5000/admin/login` (admin sign-in)
-- `http://localhost:5000/admin` (admin dashboard, protected)
+- `http://localhost:5000/admin/login`
+- `http://localhost:5000/admin`
 
-Default local admin credentials (for first run):
+> Note: admin routes are available only when `APP_DEPLOY_TARGET=admin_internal`.
+> For local admin testing:
+>
+> ```bash
+> APP_DEPLOY_TARGET=admin_internal APP_PORT=5000 python3 admin_backend.py
+> ```
+
+Default local admin credentials:
 
 - Email: `admin@digi-tech.local`
 - Password: `ChangeMe123!`
 
-Override credentials in production using environment variables:
+Set production credentials via env vars:
 
 - `ADMIN_EMAIL`
-- `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_HASH` for pre-hashed secret)
+- `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_HASH`)
 - `FLASK_SECRET_KEY`
 
-SQLite database is auto-created at:
+### Deployment modes (important)
 
-- `data/admin_dashboard.db`
+`admin_backend.py` supports two deployment targets:
 
-Admin dashboard supports manual project entry with automated calculations and now includes:
+- `APP_DEPLOY_TARGET=public`
+  - Admin module disabled (`/admin` and `/api/admin/*` return 404)
+  - Exposes public website + public API routes only
+- `APP_DEPLOY_TARGET=admin_internal`
+  - Admin module enabled for internal staff use
+  - Supports login + admin dashboard + admin APIs
 
-- project-level currency selection (`USD` or `EGP`)
-- currency-filtered overview cards and project table
-- currency-aware CSV/JSON exports and share-report drafts
+Public API routes available in `public` mode:
+
+- `GET /api/public/health`
+- `POST /api/public/inquiries`
+
+## Hostinger VPS deployment (public + internal split)
+
+Use two app processes and two subdomains:
+
+- `yourdomain.com` → public app (`APP_DEPLOY_TARGET=public`, port `5000`)
+- `admin.yourdomain.com` → internal admin app (`APP_DEPLOY_TARGET=admin_internal`, port `5001`)
+
+Reference files:
+
+- `deploy/hostinger/public.env.example`
+- `deploy/hostinger/admin.env.example`
+- `deploy/hostinger/nginx-public.conf`
+- `deploy/hostinger/nginx-admin-internal.conf`
+- `deploy/hostinger/systemd/digi-tech-public.service`
+- `deploy/hostinger/systemd/digi-tech-admin.service`
+
+Internal admin protection should use both:
+
+1. Nginx IP allowlist (`allow`/`deny`) on `admin.yourdomain.com`
+2. App-level session auth (email/password)
 
 ## Customization Notes
 
