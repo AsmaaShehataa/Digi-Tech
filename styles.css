@@ -15,6 +15,7 @@
   --container: 1120px;
 }
 
+
 *,
 *::before,
 *::after {
@@ -680,4 +681,8 @@ select {
     opacity: 1;
     transform: none;
   }
+}
+
+.gallery-modal[hidden] {
+  display: none !important;
 }
