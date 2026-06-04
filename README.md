@@ -153,6 +153,23 @@ Internal admin protection should use both:
 1. Nginx IP allowlist (`allow`/`deny`) on `admin.yourdomain.com`
 2. App-level session auth (email/password)
 
+## Split deployment with standalone backend repo
+
+If your frontend is hosted on shared hosting (static-only) and backend is hosted elsewhere, split this codebase into:
+
+- **Frontend repo** (recommended name: `digi-tech-frontend`)
+  - Keep: `index.html`, `styles.css`, `script.js`, `logo.svg`
+- **Backend repo** (recommended name: `digi-tech-backend`)
+  - Keep: `admin_backend.py`, `templates/admin_*.html`, `static/admin*`, `requirements.txt`, `deploy/hostinger/*`
+
+Backend cross-origin access for public APIs is supported via environment variable:
+
+- `PUBLIC_API_ALLOWED_ORIGINS`
+  - Use `*` for open access (default)
+  - Or a comma-separated allowlist, e.g.
+    - `PUBLIC_API_ALLOWED_ORIGINS=https://www.digi-tech.com,https://digi-tech.com`
+- `PUBLIC_API_ALLOW_CREDENTIALS=1` (optional; use only if needed)
+
 ## Customization Notes
 
 - Replace `Digi-Tech` branding and copy in `index.html`
