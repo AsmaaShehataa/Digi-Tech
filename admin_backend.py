@@ -9,16 +9,29 @@ from datetime import date, datetime
 from functools import wraps
 from ipaddress import ip_address, ip_network
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import quote
 
 from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except ImportError:  # pragma: no cover - optional dependency in local sqlite mode
+    psycopg = None
+    dict_row = None
+
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "admin_dashboard.db"
+
+
+def _normalize_database_url(raw_url: str) -> str:
+    if raw_url.startswith("postgres://"):
+        return "postgresql://" + raw_url[len("postgres://") :]
+    return raw_url
 
 ALLOWED_STATUSES = {"planned", "in_progress", "on_hold", "completed", "cancelled"}
 ALLOWED_CURRENCIES = {"USD", "EGP"}
@@ -28,6 +41,7 @@ ALLOWED_DEPLOY_TARGETS = {"public", "admin_internal"}
 DEFAULT_ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@digi-tech.local").strip().lower()
 DEFAULT_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMe123!")
 DEFAULT_ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH") or generate_password_hash(DEFAULT_ADMIN_PASSWORD)
+DATABASE_URL = _normalize_database_url(os.environ.get("DATABASE_URL", "").strip())
 APP_DEPLOY_TARGET = os.environ.get("APP_DEPLOY_TARGET", "public").strip().lower()
 if APP_DEPLOY_TARGET not in ALLOWED_DEPLOY_TARGETS:
     APP_DEPLOY_TARGET = "public"
@@ -154,60 +168,122 @@ def _compute_project_metrics(project: dict[str, Any]) -> dict[str, Any]:
 
 
 class DashboardRepository:
-    def __init__(self, db_path: Path) -> None:
+    def __init__(self, db_path: Path, database_url: str | None = None) -> None:
         self.db_path = db_path
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.database_url = (database_url or "").strip()
+        self.use_postgres = bool(self.database_url)
+        if self.use_postgres:
+            if psycopg is None or dict_row is None:
+                raise RuntimeError("Postgres mode requires psycopg. Install dependencies from requirements.txt.")
+        else:
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
-    def _connect(self) -> sqlite3.Connection:
+    def _connect(self):
+        if self.use_postgres:
+            return psycopg.connect(self.database_url, row_factory=dict_row)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
 
+    def _sql(self, query: str) -> str:
+        if self.use_postgres:
+            return query.replace("?", "%s")
+        return query
+
+    def _execute(self, conn, query: str, params: tuple[Any, ...] = ()):
+        return conn.execute(self._sql(query), params)
+
     def _init_db(self) -> None:
         with self._connect() as conn:
-            conn.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS projects (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    client_name TEXT NOT NULL,
-                    project_name TEXT NOT NULL,
-                    currency TEXT NOT NULL DEFAULT 'USD',
-                    total_price REAL NOT NULL,
-                    paid_amount REAL NOT NULL DEFAULT 0,
-                    start_date TEXT NOT NULL,
-                    deadline TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    notes TEXT,
-                    milestones_json TEXT NOT NULL DEFAULT '[]',
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                );
+            if self.use_postgres:
+                statements = [
+                    """
+                    CREATE TABLE IF NOT EXISTS projects (
+                        id SERIAL PRIMARY KEY,
+                        client_name TEXT NOT NULL,
+                        project_name TEXT NOT NULL,
+                        currency TEXT NOT NULL DEFAULT 'USD',
+                        total_price DOUBLE PRECISION NOT NULL,
+                        paid_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+                        start_date TEXT NOT NULL,
+                        deadline TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        notes TEXT,
+                        milestones_json TEXT NOT NULL DEFAULT '[]',
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """,
+                    """
+                    CREATE TABLE IF NOT EXISTS admin_users (
+                        id SERIAL PRIMARY KEY,
+                        email TEXT NOT NULL UNIQUE,
+                        password_hash TEXT NOT NULL,
+                        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        last_login_at TIMESTAMPTZ
+                    )
+                    """,
+                    """
+                    CREATE TABLE IF NOT EXISTS inquiries (
+                        id SERIAL PRIMARY KEY,
+                        full_name TEXT NOT NULL,
+                        email TEXT NOT NULL,
+                        company TEXT,
+                        message TEXT NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """,
+                ]
+                for statement in statements:
+                    conn.execute(statement)
+            else:
+                conn.executescript(
+                    """
+                    CREATE TABLE IF NOT EXISTS projects (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        client_name TEXT NOT NULL,
+                        project_name TEXT NOT NULL,
+                        currency TEXT NOT NULL DEFAULT 'USD',
+                        total_price REAL NOT NULL,
+                        paid_amount REAL NOT NULL DEFAULT 0,
+                        start_date TEXT NOT NULL,
+                        deadline TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        notes TEXT,
+                        milestones_json TEXT NOT NULL DEFAULT '[]',
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
 
-                CREATE TABLE IF NOT EXISTS admin_users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    email TEXT NOT NULL UNIQUE,
-                    password_hash TEXT NOT NULL,
-                    is_active INTEGER NOT NULL DEFAULT 1,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    last_login_at TEXT
-                );
+                    CREATE TABLE IF NOT EXISTS admin_users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        email TEXT NOT NULL UNIQUE,
+                        password_hash TEXT NOT NULL,
+                        is_active INTEGER NOT NULL DEFAULT 1,
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        last_login_at TEXT
+                    );
 
-                CREATE TABLE IF NOT EXISTS inquiries (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    full_name TEXT NOT NULL,
-                    email TEXT NOT NULL,
-                    company TEXT,
-                    message TEXT NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                );
-                """
-            )
-            existing = conn.execute("SELECT id FROM admin_users WHERE email = ?", (DEFAULT_ADMIN_EMAIL,)).fetchone()
+                    CREATE TABLE IF NOT EXISTS inquiries (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        full_name TEXT NOT NULL,
+                        email TEXT NOT NULL,
+                        company TEXT,
+                        message TEXT NOT NULL,
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                    """
+                )
+
+            existing = self._execute(conn, "SELECT id FROM admin_users WHERE email = ?", (DEFAULT_ADMIN_EMAIL,)).fetchone()
             if not existing:
-                conn.execute(
-                    "INSERT INTO admin_users (email, password_hash, is_active) VALUES (?, ?, 1)",
-                    (DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD_HASH),
+                active_value = True if self.use_postgres else 1
+                self._execute(
+                    conn,
+                    "INSERT INTO admin_users (email, password_hash, is_active) VALUES (?, ?, ?)",
+                    (DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD_HASH, active_value),
                 )
 
     def authenticate_admin(self, email: str, password: str) -> dict[str, Any] | None:
@@ -216,7 +292,8 @@ class DashboardRepository:
             return None
 
         with self._connect() as conn:
-            row = conn.execute(
+            row = self._execute(
+                conn,
                 "SELECT id, email, password_hash, is_active FROM admin_users WHERE email = ?",
                 (email,),
             ).fetchone()
@@ -224,10 +301,10 @@ class DashboardRepository:
                 return None
             if not check_password_hash(row["password_hash"], password):
                 return None
-            conn.execute("UPDATE admin_users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", (row["id"],))
+            self._execute(conn, "UPDATE admin_users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", (row["id"],))
             return {"id": row["id"], "email": row["email"]}
 
-    def _serialize_project(self, row: sqlite3.Row) -> dict[str, Any]:
+    def _serialize_project(self, row: Mapping[str, Any]) -> dict[str, Any]:
         milestones = json.loads(row["milestones_json"] or "[]")
         project = {
             "id": row["id"],
@@ -257,12 +334,13 @@ class DashboardRepository:
         query += " ORDER BY deadline ASC, id DESC"
 
         with self._connect() as conn:
-            rows = conn.execute(query, params).fetchall()
+            rows = self._execute(conn, query, params).fetchall()
         return [self._serialize_project(row) for row in rows]
 
     def get_project(self, project_id: int) -> dict[str, Any]:
         with self._connect() as conn:
-            row = conn.execute(
+            row = self._execute(
+                conn,
                 """
                 SELECT id, client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes, milestones_json
                 FROM projects
@@ -295,26 +373,41 @@ class DashboardRepository:
         milestones = _sanitize_milestones(payload.get("milestones", []), start_date, deadline, total_price)
 
         with self._connect() as conn:
-            cur = conn.execute(
-                """
-                INSERT INTO projects (
-                    client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes, milestones_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    client_name,
-                    project_name,
-                    currency,
-                    total_price,
-                    paid_amount,
-                    start_date,
-                    deadline,
-                    status,
-                    notes,
-                    json.dumps(milestones),
-                ),
+            insert_params = (
+                client_name,
+                project_name,
+                currency,
+                total_price,
+                paid_amount,
+                start_date,
+                deadline,
+                status,
+                notes,
+                json.dumps(milestones),
             )
-            project_id = cur.lastrowid
+            if self.use_postgres:
+                row = self._execute(
+                    conn,
+                    """
+                    INSERT INTO projects (
+                        client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes, milestones_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    RETURNING id
+                    """,
+                    insert_params,
+                ).fetchone()
+                project_id = int(row["id"])
+            else:
+                cur = self._execute(
+                    conn,
+                    """
+                    INSERT INTO projects (
+                        client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes, milestones_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    insert_params,
+                )
+                project_id = int(cur.lastrowid)
         return self.get_project(project_id)
 
     def update_project(self, project_id: int, payload: dict[str, Any]) -> dict[str, Any]:
@@ -352,7 +445,8 @@ class DashboardRepository:
         milestones = _sanitize_milestones(merged.get("milestones", []), start_date, deadline, total_price)
 
         with self._connect() as conn:
-            conn.execute(
+            self._execute(
+                conn,
                 """
                 UPDATE projects
                 SET client_name = ?, project_name = ?, currency = ?, total_price = ?, paid_amount = ?, start_date = ?,
@@ -377,7 +471,7 @@ class DashboardRepository:
 
     def delete_project(self, project_id: int) -> None:
         with self._connect() as conn:
-            conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+            self._execute(conn, "DELETE FROM projects WHERE id = ?", (project_id,))
 
     def create_inquiry(self, payload: dict[str, Any]) -> dict[str, Any]:
         full_name = str(payload.get("full_name", "")).strip()
@@ -389,22 +483,35 @@ class DashboardRepository:
             raise ValueError("full_name, email, and message are required.")
 
         with self._connect() as conn:
-            cur = conn.execute(
-                """
-                INSERT INTO inquiries (full_name, email, company, message)
-                VALUES (?, ?, ?, ?)
-                """,
-                (full_name, email, company, message),
-            )
-            inquiry_id = cur.lastrowid
-            row = conn.execute(
-                """
-                SELECT id, full_name, email, company, message, created_at
-                FROM inquiries
-                WHERE id = ?
-                """,
-                (inquiry_id,),
-            ).fetchone()
+            if self.use_postgres:
+                row = self._execute(
+                    conn,
+                    """
+                    INSERT INTO inquiries (full_name, email, company, message)
+                    VALUES (?, ?, ?, ?)
+                    RETURNING id, full_name, email, company, message, created_at
+                    """,
+                    (full_name, email, company, message),
+                ).fetchone()
+            else:
+                cur = self._execute(
+                    conn,
+                    """
+                    INSERT INTO inquiries (full_name, email, company, message)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (full_name, email, company, message),
+                )
+                inquiry_id = int(cur.lastrowid)
+                row = self._execute(
+                    conn,
+                    """
+                    SELECT id, full_name, email, company, message, created_at
+                    FROM inquiries
+                    WHERE id = ?
+                    """,
+                    (inquiry_id,),
+                ).fetchone()
         return dict(row)
 
 
@@ -504,7 +611,7 @@ def _serialize_csv(projects: list[dict[str, Any]]) -> str:
     return output.getvalue()
 
 
-repo = DashboardRepository(DB_PATH)
+repo = DashboardRepository(DB_PATH, DATABASE_URL)
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"), static_folder=str(BASE_DIR / "static"))
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-in-production")
 
@@ -588,6 +695,7 @@ def public_health() -> Response:
             "status": "ok",
             "app_deploy_target": APP_DEPLOY_TARGET,
             "admin_module_enabled": ADMIN_MODULE_ENABLED,
+            "database_backend": "postgres" if repo.use_postgres else "sqlite",
             "timestamp": datetime.utcnow().isoformat() + "Z",
         }
     )
