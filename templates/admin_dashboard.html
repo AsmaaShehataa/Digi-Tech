@@ -70,6 +70,14 @@
           <h2>Progress</h2>
           <p id="portfolio-progress" class="metric-value">0%</p>
         </article>
+        <article class="metric-card">
+          <h2>Open Changes</h2>
+          <p id="open-change-requests" class="metric-value">0</p>
+        </article>
+        <article class="metric-card">
+          <h2>Approved Add-ons</h2>
+          <p id="approved-change-value" class="metric-value">0</p>
+        </article>
       </section>
 
       <section class="layout-grid">
@@ -186,6 +194,73 @@
             </thead>
             <tbody id="projects-table-body"></tbody>
           </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Change Requests (Paid Add-ons)</h2>
+          <p>Track post-launch edits, feature requests, approvals, and add-on revenue.</p>
+        </div>
+        <div class="change-request-layout">
+          <form id="change-request-form" class="form-grid">
+            <input type="hidden" name="change_request_id" id="change-request-id" />
+            <label>
+              Project
+              <select name="project_id" id="change-request-project-id" required>
+                <option value="">Select a project</option>
+              </select>
+            </label>
+            <label>
+              Request title
+              <input name="title" type="text" required />
+            </label>
+            <label>
+              Price
+              <input name="price" type="number" min="0" step="0.01" required />
+            </label>
+            <label>
+              ETA (days)
+              <input name="estimated_days" type="number" min="0" step="1" />
+            </label>
+            <label>
+              Status
+              <select name="status" required>
+                <option value="draft">Draft</option>
+                <option value="sent">Sent</option>
+                <option value="approved">Approved</option>
+                <option value="in_progress">In progress</option>
+                <option value="completed">Completed</option>
+                <option value="rejected">Rejected</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+            <label class="full-width">
+              Scope details
+              <textarea name="description" rows="2" placeholder="Describe requested edits/features"></textarea>
+            </label>
+            <div class="full-width form-actions">
+              <button class="button primary" id="save-change-request-button" type="submit">Save Change Request</button>
+              <button class="button ghost" id="cancel-change-request-button" type="button" hidden>Cancel Edit</button>
+              <p id="change-request-feedback" role="status" aria-live="polite"></p>
+            </div>
+          </form>
+
+          <div class="table-wrap">
+            <table class="compact-table">
+              <thead>
+                <tr>
+                  <th>Project</th>
+                  <th>Request</th>
+                  <th>Price</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="change-requests-table-body"></tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>
