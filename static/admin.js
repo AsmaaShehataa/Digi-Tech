@@ -2,6 +2,7 @@ const projectsTableBody = document.getElementById("projects-table-body");
 const totalProjectsEl = document.getElementById("total-projects");
 const activeProjectsEl = document.getElementById("active-projects");
 const completedProjectsEl = document.getElementById("completed-projects");
+const completedRevenueEl = document.getElementById("completed-revenue");
 const pendingPaymentsEl = document.getElementById("pending-payments");
 const overduePaymentsEl = document.getElementById("overdue-payments");
 const portfolioProgressEl = document.getElementById("portfolio-progress");
@@ -131,8 +132,11 @@ const renderProjects = (projects) => {
   projectsTableBody.innerHTML = projects
     .map((project) => {
       const metrics = project.metrics;
+      const isCompleted = metrics.effective_status === "completed" || project.status === "completed";
+      const displayDeadlineState = isCompleted ? "completed" : metrics.deadline_state;
+      const displayDaysRemaining = isCompleted ? "Completed" : `${metrics.days_remaining} day(s) remaining`;
       const statusClass = `status-${metrics.effective_status}`;
-      const deadlineClass = `status-${metrics.deadline_state}`;
+      const deadlineClass = `status-${displayDeadlineState}`;
       const milestonesHtml = project.milestones.length
         ? project.milestones.map((milestone) => renderMilestoneRow(milestone, project.currency)).join("")
         : `<span class="empty-state">No milestones set.</span>`;
@@ -161,8 +165,8 @@ const renderProjects = (projects) => {
           <td>${milestonesHtml}</td>
           <td>
             <p class="project-main">${project.deadline}</p>
-            <p class="project-sub">${metrics.days_remaining} day(s) remaining</p>
-            <span class="status-badge ${deadlineClass}">${metrics.deadline_state.replace("_", " ")}</span>
+            <p class="project-sub">${displayDaysRemaining}</p>
+            <span class="status-badge ${deadlineClass}">${displayDeadlineState.replace("_", " ")}</span>
           </td>
           <td>
             <div class="actions-cell">
@@ -179,9 +183,15 @@ const renderProjects = (projects) => {
 const renderOverview = (overview) => {
   const totals = overview.totals;
   const currencyCode = overview.currency || "USD";
+  const completedRevenue =
+    totals.completed_revenue ??
+    cachedProjects
+      .filter((project) => project.metrics?.effective_status === "completed" || project.status === "completed")
+      .reduce((sum, project) => sum + Number(project.paid_amount || 0), 0);
   totalProjectsEl.textContent = totals.total_projects;
   activeProjectsEl.textContent = totals.active_projects;
   completedProjectsEl.textContent = totals.completed_projects;
+  completedRevenueEl.textContent = formatCurrency(completedRevenue, currencyCode);
   pendingPaymentsEl.textContent = `${totals.pending_payments_count} (${formatCurrency(totals.pending_payments_amount, currencyCode)})`;
   overduePaymentsEl.textContent = `${totals.overdue_payments_count} (${formatCurrency(totals.overdue_payments_amount, currencyCode)})`;
   portfolioProgressEl.textContent = `${totals.portfolio_payment_progress}%`;
