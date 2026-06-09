@@ -22,10 +22,14 @@ Admin module is **disabled** in public mode and returns `404`.
 - `APP_DEPLOY_TARGET=public`
 - `FLASK_SECRET_KEY=<strong-secret>`
 - `DATABASE_URL=<postgres-connection-string>`
+- `PUBLIC_API_ALLOWED_ORIGINS=<frontend-domain-allowlist or *>`
+- Example: `https://www.digi-tech.com,https://digi-tech.com`
+
 
 Optional:
 
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD` are ignored in public mode.
+- `PUBLIC_API_ALLOW_CREDENTIALS=1` (only when required)
 
 ### Internal admin service env
 
@@ -72,6 +76,7 @@ Reference configs are provided in:
 
 - `deploy/hostinger/nginx-public.conf`
 - `deploy/hostinger/nginx-admin-internal.conf`
+- `deploy/hostinger/backend-standalone.env.example`
 
 ## systemd setup
 

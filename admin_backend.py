@@ -48,6 +48,17 @@ if APP_DEPLOY_TARGET not in ALLOWED_DEPLOY_TARGETS:
     APP_DEPLOY_TARGET = "public"
 ADMIN_MODULE_ENABLED = APP_DEPLOY_TARGET == "admin_internal"
 
+_raw_public_api_allowed_origins = os.environ.get("PUBLIC_API_ALLOWED_ORIGINS", "*").strip()
+if not _raw_public_api_allowed_origins:
+    _raw_public_api_allowed_origins = "*"
+if _raw_public_api_allowed_origins == "*":
+    PUBLIC_API_ALLOWED_ORIGINS = {"*"}
+else:
+    PUBLIC_API_ALLOWED_ORIGINS = {
+        origin.strip().rstrip("/") for origin in _raw_public_api_allowed_origins.split(",") if origin.strip()
+    }
+PUBLIC_API_ALLOW_CREDENTIALS = os.environ.get("PUBLIC_API_ALLOW_CREDENTIALS", "0").strip() == "1"
+
 _raw_allowed_admin_ips = os.environ.get("ADMIN_ALLOWED_IPS", "").strip()
 ADMIN_ALLOWED_IP_NETWORKS = []
 for raw_entry in [entry.strip() for entry in _raw_allowed_admin_ips.split(",") if entry.strip()]:
@@ -954,6 +965,38 @@ def _is_logged_in() -> bool:
     return bool(session.get("admin_user_id"))
 
 
+def _resolve_public_cors_origin() -> str | None:
+    request_origin = request.headers.get("Origin", "").strip().rstrip("/")
+    if "*" in PUBLIC_API_ALLOWED_ORIGINS:
+        return request_origin if request_origin and PUBLIC_API_ALLOW_CREDENTIALS else "*"
+    if request_origin and request_origin in PUBLIC_API_ALLOWED_ORIGINS:
+        return request_origin
+    return None
+
+
+def _append_vary_header(response: Response, header_name: str) -> None:
+    existing = response.headers.get("Vary", "")
+    vary_values = [item.strip() for item in existing.split(",") if item.strip()]
+    if header_name not in vary_values:
+        vary_values.append(header_name)
+        response.headers["Vary"] = ", ".join(vary_values)
+
+
+@app.after_request
+def _apply_public_api_cors(response: Response) -> Response:
+    if request.path.startswith("/api/public/"):
+        origin = _resolve_public_cors_origin()
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            if origin != "*":
+                _append_vary_header(response, "Origin")
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        if PUBLIC_API_ALLOW_CREDENTIALS:
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
+
+
 def _safe_next_url(raw_next: str | None) -> str:
     if raw_next and raw_next.startswith("/") and not raw_next.startswith("//"):
         return raw_next
@@ -1022,8 +1065,10 @@ def serve_asset(asset: str) -> Response:
     abort(404)
 
 
-@app.route("/api/public/health", methods=["GET"])
+@app.route("/api/public/health", methods=["GET", "OPTIONS"])
 def public_health() -> Response:
+    if request.method == "OPTIONS":
+        return Response(status=204)
     return jsonify(
         {
             "status": "ok",
@@ -1035,8 +1080,10 @@ def public_health() -> Response:
     )
 
 
-@app.route("/api/public/inquiries", methods=["POST"])
+@app.route("/api/public/inquiries", methods=["POST", "OPTIONS"])
 def public_create_inquiry() -> Response:
+    if request.method == "OPTIONS":
+        return Response(status=204)
     payload = request.get_json(silent=True) or {}
     try:
         inquiry = repo.create_inquiry(payload)
