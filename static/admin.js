@@ -310,6 +310,7 @@ const renderChangeRequests = (changeRequests) => {
           <td>${updatedAt}</td>
           <td>
             <div class="actions-cell">
+              <button class="button ghost small email-change-request" type="button" data-id="${changeRequest.id}">Email Client</button>
               <button class="button ghost small edit-change-request" type="button" data-id="${changeRequest.id}">Edit</button>
               <button class="button danger small delete-change-request" type="button" data-id="${changeRequest.id}">Delete</button>
             </div>
@@ -320,6 +321,34 @@ const renderChangeRequests = (changeRequests) => {
     .join("");
 
   changeRequestsTableBody.innerHTML = rowsHtml;
+};
+
+const buildChangeRequestEmailDraft = (changeRequest) => {
+  const statusLabel = changeRequestStatusLabelMap[changeRequest.status] || changeRequest.status;
+  const currencyCode = changeRequest.currency || "USD";
+  const priceText = formatCurrency(changeRequest.price, currencyCode);
+  const etaLine =
+    changeRequest.estimated_days === null || changeRequest.estimated_days === undefined
+      ? ""
+      : `Estimated timeline: ${changeRequest.estimated_days} day(s)\n`;
+  const descriptionLine = changeRequest.description
+    ? `Requested details:\n${changeRequest.description}\n\n`
+    : "Requested details: No additional notes were provided.\n\n";
+  const subject = `Change Request Update - ${changeRequest.project_name || `Project #${changeRequest.project_id}`}`;
+  const body =
+    `Hello ${changeRequest.client_name || "Client"},\n\n` +
+    "Here is your change request summary:\n\n" +
+    `Project: ${changeRequest.project_name || `Project #${changeRequest.project_id}`}\n` +
+    `Request: ${changeRequest.title}\n` +
+    `Status: ${statusLabel}\n` +
+    `Price: ${priceText}\n` +
+    etaLine +
+    `Last updated: ${changeRequest.updated_at ? String(changeRequest.updated_at).slice(0, 10) : "-"}\n\n` +
+    descriptionLine +
+    "Please reply to confirm or request any adjustments.\n\n" +
+    "Best regards,\nDigi-Tech";
+
+  return { subject, body };
 };
 
 const renderOverview = (overview) => {
@@ -478,6 +507,34 @@ const deleteChangeRequest = async (changeRequestId) => {
   }
 };
 
+const emailChangeRequest = (changeRequestId) => {
+  const changeRequest = cachedChangeRequests.find((item) => Number(item.id) === Number(changeRequestId));
+  if (!changeRequest) return;
+
+  const defaultRecipient = shareForm?.client_email?.value?.trim() || "";
+  const recipient = window
+    .prompt(`Enter ${changeRequest.client_name || "client"} email address:`, defaultRecipient)
+    ?.trim();
+
+  if (recipient === undefined) {
+    return;
+  }
+
+  if (!recipient) {
+    changeRequestFeedback.textContent = "Client email is required to open the draft.";
+    changeRequestFeedback.className = "error";
+    return;
+  }
+
+  if (shareForm?.client_email) {
+    shareForm.client_email.value = recipient;
+  }
+
+  const { subject, body } = buildChangeRequestEmailDraft(changeRequest);
+  const mailto = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+};
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   formFeedback.className = "";
@@ -571,8 +628,12 @@ if (changeRequestForm) {
 
 if (changeRequestsTableBody) {
   changeRequestsTableBody.addEventListener("click", (event) => {
+    const emailButton = event.target.closest(".email-change-request");
     const editButton = event.target.closest(".edit-change-request");
     const deleteButton = event.target.closest(".delete-change-request");
+    if (emailButton) {
+      emailChangeRequest(Number(emailButton.dataset.id));
+    }
     if (editButton) {
       enterChangeRequestEditMode(Number(editButton.dataset.id));
     }
