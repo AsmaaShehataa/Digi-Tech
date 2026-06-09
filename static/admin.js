@@ -2,6 +2,7 @@ const projectsTableBody = document.getElementById("projects-table-body");
 const totalProjectsEl = document.getElementById("total-projects");
 const activeProjectsEl = document.getElementById("active-projects");
 const completedProjectsEl = document.getElementById("completed-projects");
+const completedRevenueEl = document.getElementById("completed-revenue");
 const pendingPaymentsEl = document.getElementById("pending-payments");
 const overduePaymentsEl = document.getElementById("overdue-payments");
 const portfolioProgressEl = document.getElementById("portfolio-progress");
@@ -20,8 +21,18 @@ const shareResult = document.getElementById("share-result");
 const dashboardCurrencySelect = document.getElementById("dashboard-currency");
 const exportCsvLink = document.getElementById("export-csv-link");
 const exportJsonLink = document.getElementById("export-json-link");
+const openChangeRequestsEl = document.getElementById("open-change-requests");
+const approvedChangeValueEl = document.getElementById("approved-change-value");
+const changeRequestForm = document.getElementById("change-request-form");
+const changeRequestFeedback = document.getElementById("change-request-feedback");
+const changeRequestsTableBody = document.getElementById("change-requests-table-body");
+const changeRequestIdField = document.getElementById("change-request-id");
+const saveChangeRequestButton = document.getElementById("save-change-request-button");
+const cancelChangeRequestButton = document.getElementById("cancel-change-request-button");
+const changeRequestProjectField = document.getElementById("change-request-project-id");
 
 let cachedProjects = [];
+let cachedChangeRequests = [];
 
 const formatterCache = new Map();
 const getCurrencyFormatter = (currencyCode) => {
@@ -41,6 +52,15 @@ const getCurrencyFormatter = (currencyCode) => {
 
 const formatCurrency = (value, currencyCode) => getCurrencyFormatter(currencyCode).format(Number(value || 0));
 
+const resolveDashboardCurrency = (overview, projects) => {
+  if (overview?.currency) return overview.currency;
+  const projectCurrencies = new Set(projects.map((project) => project.currency).filter(Boolean));
+  if (projectCurrencies.size === 1) {
+    return [...projectCurrencies][0];
+  }
+  return "USD";
+};
+
 const statusLabelMap = {
   planned: "Planned",
   in_progress: "In progress",
@@ -48,6 +68,24 @@ const statusLabelMap = {
   completed: "Completed",
   cancelled: "Cancelled",
 };
+
+const changeRequestStatusLabelMap = {
+  draft: "Draft",
+  sent: "Sent",
+  approved: "Approved",
+  rejected: "Rejected",
+  in_progress: "In progress",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 
 const parseJson = async (response) => {
   if (response.status === 401) {
@@ -77,6 +115,31 @@ const resetFormToCreateMode = () => {
   cancelEditButton.hidden = true;
   milestonesContainer.innerHTML = "";
   createMilestoneItem();
+};
+
+const resetChangeRequestFormToCreateMode = () => {
+  if (!changeRequestForm) return;
+  changeRequestForm.reset();
+  changeRequestIdField.value = "";
+  saveChangeRequestButton.textContent = "Save Change Request";
+  cancelChangeRequestButton.hidden = true;
+};
+
+const populateChangeRequestProjectOptions = () => {
+  if (!changeRequestProjectField) return;
+  const selectedValue = changeRequestProjectField.value;
+  const options = cachedProjects
+    .map(
+      (project) =>
+        `<option value="${project.id}">#${project.id} · ${escapeHtml(project.project_name)} (${escapeHtml(
+          project.client_name
+        )})</option>`
+    )
+    .join("");
+  changeRequestProjectField.innerHTML = `<option value="">Select a project</option>${options}`;
+  if (selectedValue && cachedProjects.some((project) => String(project.id) === String(selectedValue))) {
+    changeRequestProjectField.value = selectedValue;
+  }
 };
 
 const createMilestoneItem = (milestone = null) => {
@@ -118,7 +181,7 @@ const renderMilestoneRow = (milestone, currencyCode) => {
     </span>`;
 };
 
-const renderProjects = (projects) => {
+const renderProjects = (projects, overview) => {
   if (!projects.length) {
     projectsTableBody.innerHTML = `
       <tr>
@@ -128,11 +191,24 @@ const renderProjects = (projects) => {
     return;
   }
 
-  projectsTableBody.innerHTML = projects
+  const totals = overview?.totals || {};
+  const currencyCode = resolveDashboardCurrency(overview, projects);
+  const totalContractValue =
+    Number(totals.total_contract_value) || projects.reduce((sum, project) => sum + Number(project.total_price || 0), 0);
+  const totalRevenueAmount =
+    Number(totals.total_paid) || projects.reduce((sum, project) => sum + Number(project.paid_amount || 0), 0);
+  const totalRemainingAmount =
+    Number(totals.total_remaining) ||
+    projects.reduce((sum, project) => sum + Number(project.metrics?.remaining_balance || 0), 0);
+
+  const rowsHtml = projects
     .map((project) => {
       const metrics = project.metrics;
+      const isCompleted = metrics.effective_status === "completed" || project.status === "completed";
+      const displayDeadlineState = isCompleted ? "completed" : metrics.deadline_state;
+      const displayDaysRemaining = isCompleted ? "Completed" : `${metrics.days_remaining} day(s) remaining`;
       const statusClass = `status-${metrics.effective_status}`;
-      const deadlineClass = `status-${metrics.deadline_state}`;
+      const deadlineClass = `status-${displayDeadlineState}`;
       const milestonesHtml = project.milestones.length
         ? project.milestones.map((milestone) => renderMilestoneRow(milestone, project.currency)).join("")
         : `<span class="empty-state">No milestones set.</span>`;
@@ -161,8 +237,8 @@ const renderProjects = (projects) => {
           <td>${milestonesHtml}</td>
           <td>
             <p class="project-main">${project.deadline}</p>
-            <p class="project-sub">${metrics.days_remaining} day(s) remaining</p>
-            <span class="status-badge ${deadlineClass}">${metrics.deadline_state.replace("_", " ")}</span>
+            <p class="project-sub">${displayDaysRemaining}</p>
+            <span class="status-badge ${deadlineClass}">${displayDeadlineState.replace("_", " ")}</span>
           </td>
           <td>
             <div class="actions-cell">
@@ -174,17 +250,100 @@ const renderProjects = (projects) => {
       `;
     })
     .join("");
+
+  const totalsRowHtml = `
+    <tr class="totals-row">
+      <td colspan="3">
+        <p class="project-main">Portfolio Total</p>
+        <p class="project-sub">${projects.length} project(s)</p>
+      </td>
+      <td>
+        <p class="project-main">${formatCurrency(totalRevenueAmount, currencyCode)}</p>
+        <p class="project-sub">Contracted: ${formatCurrency(totalContractValue, currencyCode)} • Remaining: ${formatCurrency(totalRemainingAmount, currencyCode)}</p>
+      </td>
+      <td colspan="3">
+        <p class="project-sub">Revenues are counted from paid amounts only.</p>
+      </td>
+    </tr>
+  `;
+
+  projectsTableBody.innerHTML = rowsHtml + totalsRowHtml;
+};
+
+const renderChangeRequests = (changeRequests) => {
+  if (!changeRequestsTableBody) return;
+  if (!changeRequests.length) {
+    changeRequestsTableBody.innerHTML = `
+      <tr>
+        <td colspan="6"><p class="empty-state">No change requests yet.</p></td>
+      </tr>
+    `;
+    return;
+  }
+
+  const rowsHtml = changeRequests
+    .map((changeRequest) => {
+      const statusClass = `status-${changeRequest.status}`;
+      const updatedAt = changeRequest.updated_at ? String(changeRequest.updated_at).slice(0, 10) : "-";
+      const requestTitle = escapeHtml(changeRequest.title);
+      const projectName = escapeHtml(changeRequest.project_name || `Project #${changeRequest.project_id}`);
+      const clientName = escapeHtml(changeRequest.client_name || "");
+      const description = changeRequest.description ? `<p class="project-sub">${escapeHtml(changeRequest.description)}</p>` : "";
+      const currencyCode = changeRequest.currency || "USD";
+
+      return `
+        <tr>
+          <td>
+            <p class="project-main">${projectName}</p>
+            <p class="project-sub">${clientName}</p>
+          </td>
+          <td>
+            <p class="project-main">${requestTitle}</p>
+            ${description}
+          </td>
+          <td>${formatCurrency(changeRequest.price, currencyCode)}</td>
+          <td>
+            <span class="status-badge ${statusClass}">
+              ${changeRequestStatusLabelMap[changeRequest.status] || changeRequest.status}
+            </span>
+          </td>
+          <td>${updatedAt}</td>
+          <td>
+            <div class="actions-cell">
+              <button class="button ghost small edit-change-request" type="button" data-id="${changeRequest.id}">Edit</button>
+              <button class="button danger small delete-change-request" type="button" data-id="${changeRequest.id}">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  changeRequestsTableBody.innerHTML = rowsHtml;
 };
 
 const renderOverview = (overview) => {
   const totals = overview.totals;
-  const currencyCode = overview.currency || "USD";
+  const changeSummary = overview.change_requests_summary || {};
+  const currencyCode = resolveDashboardCurrency(overview, cachedProjects);
+  const totalRevenue =
+    Number(totals.total_paid) || cachedProjects.reduce((sum, project) => sum + Number(project.paid_amount || 0), 0);
+  const pendingBalance =
+    Number(totals.total_remaining) ||
+    cachedProjects.reduce((sum, project) => sum + Number(project.metrics?.remaining_balance || 0), 0);
   totalProjectsEl.textContent = totals.total_projects;
   activeProjectsEl.textContent = totals.active_projects;
   completedProjectsEl.textContent = totals.completed_projects;
-  pendingPaymentsEl.textContent = `${totals.pending_payments_count} (${formatCurrency(totals.pending_payments_amount, currencyCode)})`;
+  completedRevenueEl.textContent = formatCurrency(totalRevenue, currencyCode);
+  pendingPaymentsEl.textContent = formatCurrency(pendingBalance, currencyCode);
   overduePaymentsEl.textContent = `${totals.overdue_payments_count} (${formatCurrency(totals.overdue_payments_amount, currencyCode)})`;
   portfolioProgressEl.textContent = `${totals.portfolio_payment_progress}%`;
+  if (openChangeRequestsEl) {
+    openChangeRequestsEl.textContent = String(changeSummary.open_requests || 0);
+  }
+  if (approvedChangeValueEl) {
+    approvedChangeValueEl.textContent = formatCurrency(changeSummary.approved_value || 0, currencyCode);
+  }
 
   if (!overview.upcoming_deadlines.length) {
     deadlineListEl.innerHTML = "<li>No deadlines in the next 14 days.</li>";
@@ -218,12 +377,25 @@ const fetchOverview = async () => {
   return parseJson(response);
 };
 
+const fetchChangeRequests = async () => {
+  const currency = dashboardCurrencySelect.value;
+  const url = currency
+    ? `/api/admin/change-requests?currency=${encodeURIComponent(currency)}`
+    : "/api/admin/change-requests";
+  const response = await fetch(url);
+  const payload = await parseJson(response);
+  return payload.change_requests || [];
+};
+
 const refreshDashboard = async () => {
   updateExportLink();
-  const [overview, projects] = await Promise.all([fetchOverview(), fetchProjects()]);
+  const [overview, projects, changeRequests] = await Promise.all([fetchOverview(), fetchProjects(), fetchChangeRequests()]);
   cachedProjects = projects;
+  cachedChangeRequests = changeRequests;
+  populateChangeRequestProjectOptions();
   renderOverview(overview);
-  renderProjects(projects);
+  renderProjects(projects, overview);
+  renderChangeRequests(changeRequests);
 };
 
 const enterEditMode = (projectId) => {
@@ -268,6 +440,41 @@ const deleteProject = async (projectId) => {
   } catch (error) {
     formFeedback.textContent = error.message;
     formFeedback.className = "error";
+  }
+};
+
+const enterChangeRequestEditMode = (changeRequestId) => {
+  if (!changeRequestForm) return;
+  const changeRequest = cachedChangeRequests.find((item) => Number(item.id) === Number(changeRequestId));
+  if (!changeRequest) return;
+  changeRequestIdField.value = String(changeRequest.id);
+  changeRequestProjectField.value = String(changeRequest.project_id);
+  changeRequestForm.title.value = changeRequest.title || "";
+  changeRequestForm.price.value = String(changeRequest.price ?? 0);
+  changeRequestForm.estimated_days.value = changeRequest.estimated_days ?? "";
+  changeRequestForm.status.value = changeRequest.status || "draft";
+  changeRequestForm.description.value = changeRequest.description || "";
+  saveChangeRequestButton.textContent = "Update Change Request";
+  cancelChangeRequestButton.hidden = false;
+  changeRequestForm.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
+const deleteChangeRequest = async (changeRequestId) => {
+  if (!changeRequestForm) return;
+  const confirmed = window.confirm("Delete this change request permanently?");
+  if (!confirmed) return;
+  try {
+    const response = await fetch(`/api/admin/change-requests/${changeRequestId}`, { method: "DELETE" });
+    await parseJson(response);
+    changeRequestFeedback.textContent = "Change request deleted successfully.";
+    changeRequestFeedback.className = "success";
+    if (changeRequestIdField.value && Number(changeRequestIdField.value) === Number(changeRequestId)) {
+      resetChangeRequestFormToCreateMode();
+    }
+    await refreshDashboard();
+  } catch (error) {
+    changeRequestFeedback.textContent = error.message;
+    changeRequestFeedback.className = "error";
   }
 };
 
@@ -322,11 +529,72 @@ projectsTableBody.addEventListener("click", (event) => {
   }
 });
 
+if (changeRequestForm) {
+  changeRequestForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    changeRequestFeedback.className = "";
+    changeRequestFeedback.textContent = "Saving change request...";
+
+    const payload = {
+      project_id: Number(changeRequestForm.project_id.value),
+      title: changeRequestForm.title.value.trim(),
+      description: changeRequestForm.description.value.trim(),
+      price: Number(changeRequestForm.price.value),
+      estimated_days: changeRequestForm.estimated_days.value ? Number(changeRequestForm.estimated_days.value) : null,
+      status: changeRequestForm.status.value,
+    };
+
+    const editingId = changeRequestIdField.value;
+    const isEditing = Boolean(editingId);
+    const endpoint = isEditing ? `/api/admin/change-requests/${editingId}` : "/api/admin/change-requests";
+    const method = isEditing ? "PUT" : "POST";
+
+    try {
+      const response = await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      await parseJson(response);
+      changeRequestFeedback.textContent = isEditing
+        ? "Change request updated successfully."
+        : "Change request created successfully.";
+      changeRequestFeedback.className = "success";
+      resetChangeRequestFormToCreateMode();
+      await refreshDashboard();
+    } catch (error) {
+      changeRequestFeedback.textContent = error.message;
+      changeRequestFeedback.className = "error";
+    }
+  });
+}
+
+if (changeRequestsTableBody) {
+  changeRequestsTableBody.addEventListener("click", (event) => {
+    const editButton = event.target.closest(".edit-change-request");
+    const deleteButton = event.target.closest(".delete-change-request");
+    if (editButton) {
+      enterChangeRequestEditMode(Number(editButton.dataset.id));
+    }
+    if (deleteButton) {
+      deleteChangeRequest(Number(deleteButton.dataset.id));
+    }
+  });
+}
+
 cancelEditButton.addEventListener("click", () => {
   resetFormToCreateMode();
   formFeedback.textContent = "Edit cancelled.";
   formFeedback.className = "";
 });
+
+if (cancelChangeRequestButton) {
+  cancelChangeRequestButton.addEventListener("click", () => {
+    resetChangeRequestFormToCreateMode();
+    changeRequestFeedback.textContent = "Edit cancelled.";
+    changeRequestFeedback.className = "";
+  });
+}
 
 addMilestoneButton.addEventListener("click", () => createMilestoneItem());
 
@@ -364,6 +632,7 @@ shareForm.addEventListener("submit", async (event) => {
 });
 
 resetFormToCreateMode();
+resetChangeRequestFormToCreateMode();
 refreshDashboard().catch((error) => {
   formFeedback.textContent = error.message;
   formFeedback.className = "error";

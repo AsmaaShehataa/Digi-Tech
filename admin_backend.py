@@ -9,18 +9,32 @@ from datetime import date, datetime
 from functools import wraps
 from ipaddress import ip_address, ip_network
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import quote
 
 from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
+
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except ImportError:  # pragma: no cover - optional dependency in local sqlite mode
+    psycopg = None
+    dict_row = None
 
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "admin_dashboard.db"
 
+
+def _normalize_database_url(raw_url: str) -> str:
+    if raw_url.startswith("postgres://"):
+        return "postgresql://" + raw_url[len("postgres://") :]
+    return raw_url
+
 ALLOWED_STATUSES = {"planned", "in_progress", "on_hold", "completed", "cancelled"}
+ALLOWED_CHANGE_REQUEST_STATUSES = {"draft", "sent", "approved", "rejected", "in_progress", "completed", "cancelled"}
 ALLOWED_CURRENCIES = {"USD", "EGP"}
 CURRENCY_SYMBOLS = {"USD": "$", "EGP": "E£"}
 ALLOWED_DEPLOY_TARGETS = {"public", "admin_internal"}
@@ -28,6 +42,7 @@ ALLOWED_DEPLOY_TARGETS = {"public", "admin_internal"}
 DEFAULT_ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@digi-tech.local").strip().lower()
 DEFAULT_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMe123!")
 DEFAULT_ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH") or generate_password_hash(DEFAULT_ADMIN_PASSWORD)
+DATABASE_URL = _normalize_database_url(os.environ.get("DATABASE_URL", "").strip())
 APP_DEPLOY_TARGET = os.environ.get("APP_DEPLOY_TARGET", "public").strip().lower()
 if APP_DEPLOY_TARGET not in ALLOWED_DEPLOY_TARGETS:
     APP_DEPLOY_TARGET = "public"
@@ -80,6 +95,16 @@ def _normalize_currency(value: Any) -> str:
     return currency
 
 
+def _normalize_change_request_status(value: Any) -> str:
+    status = str(value or "").strip().lower()
+    if status not in ALLOWED_CHANGE_REQUEST_STATUSES:
+        raise ValueError(
+            "Invalid change request status: "
+            f"{status}. Allowed values: {', '.join(sorted(ALLOWED_CHANGE_REQUEST_STATUSES))}."
+        )
+    return status
+
+
 def _sanitize_milestones(raw_milestones: Any, start_date: str, deadline: str, total_price: float) -> list[dict[str, Any]]:
     milestones: list[dict[str, Any]] = []
     if not raw_milestones:
@@ -125,6 +150,24 @@ def _compute_project_metrics(project: dict[str, Any]) -> dict[str, Any]:
     deadline = _parse_date(project["deadline"])
     days_remaining = (deadline - _today()).days
     deadline_state = "overdue" if days_remaining < 0 else "upcoming" if days_remaining <= 14 else "on_track"
+    effective_status = project["status"]
+    if remaining <= 0 and effective_status != "cancelled":
+        effective_status = "completed"
+
+    # Completed projects should not appear as overdue/pending in dashboard metrics.
+    if effective_status == "completed":
+        return {
+            "remaining_balance": round(remaining, 2),
+            "payment_progress": round(payment_progress, 2),
+            "days_remaining": days_remaining,
+            "deadline_state": "completed",
+            "pending_milestones_count": 0,
+            "pending_milestones_amount": 0.0,
+            "overdue_milestones_count": 0,
+            "overdue_milestones_amount": 0.0,
+            "next_due_milestone": None,
+            "effective_status": effective_status,
+        }
 
     overdue_milestones_count = 0
     overdue_milestones_amount = 0.0
@@ -146,10 +189,6 @@ def _compute_project_metrics(project: dict[str, Any]) -> dict[str, Any]:
     if unpaid:
         next_due_milestone = sorted(unpaid, key=lambda item: item["due_date"])[0]
 
-    effective_status = project["status"]
-    if remaining <= 0 and effective_status != "cancelled":
-        effective_status = "completed"
-
     return {
         "remaining_balance": round(remaining, 2),
         "payment_progress": round(payment_progress, 2),
@@ -165,60 +204,156 @@ def _compute_project_metrics(project: dict[str, Any]) -> dict[str, Any]:
 
 
 class DashboardRepository:
-    def __init__(self, db_path: Path) -> None:
+    def __init__(self, db_path: Path, database_url: str | None = None) -> None:
         self.db_path = db_path
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.database_url = (database_url or "").strip()
+        self.use_postgres = bool(self.database_url)
+        if self.use_postgres:
+            if psycopg is None or dict_row is None:
+                raise RuntimeError("Postgres mode requires psycopg. Install dependencies from requirements.txt.")
+        else:
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
-    def _connect(self) -> sqlite3.Connection:
+    def _connect(self):
+        if self.use_postgres:
+            return psycopg.connect(self.database_url, row_factory=dict_row)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
 
+    def _sql(self, query: str) -> str:
+        if self.use_postgres:
+            return query.replace("?", "%s")
+        return query
+
+    def _execute(self, conn, query: str, params: tuple[Any, ...] = ()):
+        return conn.execute(self._sql(query), params)
+
     def _init_db(self) -> None:
         with self._connect() as conn:
-            conn.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS projects (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    client_name TEXT NOT NULL,
-                    project_name TEXT NOT NULL,
-                    currency TEXT NOT NULL DEFAULT 'USD',
-                    total_price REAL NOT NULL,
-                    paid_amount REAL NOT NULL DEFAULT 0,
-                    start_date TEXT NOT NULL,
-                    deadline TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    notes TEXT,
-                    milestones_json TEXT NOT NULL DEFAULT '[]',
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                );
+            if self.use_postgres:
+                statements = [
+                    """
+                    CREATE TABLE IF NOT EXISTS projects (
+                        id SERIAL PRIMARY KEY,
+                        client_name TEXT NOT NULL,
+                        project_name TEXT NOT NULL,
+                        currency TEXT NOT NULL DEFAULT 'USD',
+                        total_price DOUBLE PRECISION NOT NULL,
+                        paid_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+                        start_date TEXT NOT NULL,
+                        deadline TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        notes TEXT,
+                        milestones_json TEXT NOT NULL DEFAULT '[]',
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """,
+                    """
+                    CREATE TABLE IF NOT EXISTS admin_users (
+                        id SERIAL PRIMARY KEY,
+                        email TEXT NOT NULL UNIQUE,
+                        password_hash TEXT NOT NULL,
+                        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        last_login_at TIMESTAMPTZ
+                    )
+                    """,
+                    """
+                    CREATE TABLE IF NOT EXISTS inquiries (
+                        id SERIAL PRIMARY KEY,
+                        full_name TEXT NOT NULL,
+                        email TEXT NOT NULL,
+                        company TEXT,
+                        message TEXT NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """,
+                    """
+                    CREATE TABLE IF NOT EXISTS change_requests (
+                        id SERIAL PRIMARY KEY,
+                        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                        title TEXT NOT NULL,
+                        description TEXT,
+                        requested_scope_json TEXT NOT NULL DEFAULT '[]',
+                        price DOUBLE PRECISION NOT NULL DEFAULT 0,
+                        estimated_days INTEGER,
+                        status TEXT NOT NULL DEFAULT 'draft',
+                        requested_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        approved_at TIMESTAMPTZ,
+                        completed_at TIMESTAMPTZ,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """,
+                ]
+                for statement in statements:
+                    conn.execute(statement)
+            else:
+                conn.executescript(
+                    """
+                    CREATE TABLE IF NOT EXISTS projects (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        client_name TEXT NOT NULL,
+                        project_name TEXT NOT NULL,
+                        currency TEXT NOT NULL DEFAULT 'USD',
+                        total_price REAL NOT NULL,
+                        paid_amount REAL NOT NULL DEFAULT 0,
+                        start_date TEXT NOT NULL,
+                        deadline TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        notes TEXT,
+                        milestones_json TEXT NOT NULL DEFAULT '[]',
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
 
-                CREATE TABLE IF NOT EXISTS admin_users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    email TEXT NOT NULL UNIQUE,
-                    password_hash TEXT NOT NULL,
-                    is_active INTEGER NOT NULL DEFAULT 1,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    last_login_at TEXT
-                );
+                    CREATE TABLE IF NOT EXISTS admin_users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        email TEXT NOT NULL UNIQUE,
+                        password_hash TEXT NOT NULL,
+                        is_active INTEGER NOT NULL DEFAULT 1,
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        last_login_at TEXT
+                    );
 
-                CREATE TABLE IF NOT EXISTS inquiries (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    full_name TEXT NOT NULL,
-                    email TEXT NOT NULL,
-                    company TEXT,
-                    message TEXT NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                );
-                """
-            )
-            existing = conn.execute("SELECT id FROM admin_users WHERE email = ?", (DEFAULT_ADMIN_EMAIL,)).fetchone()
+                    CREATE TABLE IF NOT EXISTS inquiries (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        full_name TEXT NOT NULL,
+                        email TEXT NOT NULL,
+                        company TEXT,
+                        message TEXT NOT NULL,
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+
+                    CREATE TABLE IF NOT EXISTS change_requests (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        project_id INTEGER NOT NULL,
+                        title TEXT NOT NULL,
+                        description TEXT,
+                        requested_scope_json TEXT NOT NULL DEFAULT '[]',
+                        price REAL NOT NULL DEFAULT 0,
+                        estimated_days INTEGER,
+                        status TEXT NOT NULL DEFAULT 'draft',
+                        requested_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        approved_at TEXT,
+                        completed_at TEXT,
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+                    );
+                    """
+                )
+
+            existing = self._execute(conn, "SELECT id FROM admin_users WHERE email = ?", (DEFAULT_ADMIN_EMAIL,)).fetchone()
             if not existing:
-                conn.execute(
-                    "INSERT INTO admin_users (email, password_hash, is_active) VALUES (?, ?, 1)",
-                    (DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD_HASH),
+                active_value = True if self.use_postgres else 1
+                self._execute(
+                    conn,
+                    "INSERT INTO admin_users (email, password_hash, is_active) VALUES (?, ?, ?)",
+                    (DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD_HASH, active_value),
                 )
 
     def authenticate_admin(self, email: str, password: str) -> dict[str, Any] | None:
@@ -227,7 +362,8 @@ class DashboardRepository:
             return None
 
         with self._connect() as conn:
-            row = conn.execute(
+            row = self._execute(
+                conn,
                 "SELECT id, email, password_hash, is_active FROM admin_users WHERE email = ?",
                 (email,),
             ).fetchone()
@@ -235,10 +371,10 @@ class DashboardRepository:
                 return None
             if not check_password_hash(row["password_hash"], password):
                 return None
-            conn.execute("UPDATE admin_users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", (row["id"],))
+            self._execute(conn, "UPDATE admin_users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", (row["id"],))
             return {"id": row["id"], "email": row["email"]}
 
-    def _serialize_project(self, row: sqlite3.Row) -> dict[str, Any]:
+    def _serialize_project(self, row: Mapping[str, Any]) -> dict[str, Any]:
         milestones = json.loads(row["milestones_json"] or "[]")
         project = {
             "id": row["id"],
@@ -268,12 +404,13 @@ class DashboardRepository:
         query += " ORDER BY deadline ASC, id DESC"
 
         with self._connect() as conn:
-            rows = conn.execute(query, params).fetchall()
+            rows = self._execute(conn, query, params).fetchall()
         return [self._serialize_project(row) for row in rows]
 
     def get_project(self, project_id: int) -> dict[str, Any]:
         with self._connect() as conn:
-            row = conn.execute(
+            row = self._execute(
+                conn,
                 """
                 SELECT id, client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes, milestones_json
                 FROM projects
@@ -306,26 +443,41 @@ class DashboardRepository:
         milestones = _sanitize_milestones(payload.get("milestones", []), start_date, deadline, total_price)
 
         with self._connect() as conn:
-            cur = conn.execute(
-                """
-                INSERT INTO projects (
-                    client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes, milestones_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    client_name,
-                    project_name,
-                    currency,
-                    total_price,
-                    paid_amount,
-                    start_date,
-                    deadline,
-                    status,
-                    notes,
-                    json.dumps(milestones),
-                ),
+            insert_params = (
+                client_name,
+                project_name,
+                currency,
+                total_price,
+                paid_amount,
+                start_date,
+                deadline,
+                status,
+                notes,
+                json.dumps(milestones),
             )
-            project_id = cur.lastrowid
+            if self.use_postgres:
+                row = self._execute(
+                    conn,
+                    """
+                    INSERT INTO projects (
+                        client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes, milestones_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    RETURNING id
+                    """,
+                    insert_params,
+                ).fetchone()
+                project_id = int(row["id"])
+            else:
+                cur = self._execute(
+                    conn,
+                    """
+                    INSERT INTO projects (
+                        client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes, milestones_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    insert_params,
+                )
+                project_id = int(cur.lastrowid)
         return self.get_project(project_id)
 
     def update_project(self, project_id: int, payload: dict[str, Any]) -> dict[str, Any]:
@@ -363,7 +515,8 @@ class DashboardRepository:
         milestones = _sanitize_milestones(merged.get("milestones", []), start_date, deadline, total_price)
 
         with self._connect() as conn:
-            conn.execute(
+            self._execute(
+                conn,
                 """
                 UPDATE projects
                 SET client_name = ?, project_name = ?, currency = ?, total_price = ?, paid_amount = ?, start_date = ?,
@@ -388,7 +541,7 @@ class DashboardRepository:
 
     def delete_project(self, project_id: int) -> None:
         with self._connect() as conn:
-            conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+            self._execute(conn, "DELETE FROM projects WHERE id = ?", (project_id,))
 
     def create_inquiry(self, payload: dict[str, Any]) -> dict[str, Any]:
         full_name = str(payload.get("full_name", "")).strip()
@@ -400,30 +553,280 @@ class DashboardRepository:
             raise ValueError("full_name, email, and message are required.")
 
         with self._connect() as conn:
-            cur = conn.execute(
-                """
-                INSERT INTO inquiries (full_name, email, company, message)
-                VALUES (?, ?, ?, ?)
-                """,
-                (full_name, email, company, message),
-            )
-            inquiry_id = cur.lastrowid
-            row = conn.execute(
-                """
-                SELECT id, full_name, email, company, message, created_at
-                FROM inquiries
-                WHERE id = ?
-                """,
-                (inquiry_id,),
-            ).fetchone()
+            if self.use_postgres:
+                row = self._execute(
+                    conn,
+                    """
+                    INSERT INTO inquiries (full_name, email, company, message)
+                    VALUES (?, ?, ?, ?)
+                    RETURNING id, full_name, email, company, message, created_at
+                    """,
+                    (full_name, email, company, message),
+                ).fetchone()
+            else:
+                cur = self._execute(
+                    conn,
+                    """
+                    INSERT INTO inquiries (full_name, email, company, message)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (full_name, email, company, message),
+                )
+                inquiry_id = int(cur.lastrowid)
+                row = self._execute(
+                    conn,
+                    """
+                    SELECT id, full_name, email, company, message, created_at
+                    FROM inquiries
+                    WHERE id = ?
+                    """,
+                    (inquiry_id,),
+                ).fetchone()
         return dict(row)
 
+    def _serialize_change_request(self, row: Mapping[str, Any]) -> dict[str, Any]:
+        row_keys = set(row.keys()) if hasattr(row, "keys") else set()
+        requested_scope = json.loads(row["requested_scope_json"] or "[]")
+        return {
+            "id": int(row["id"]),
+            "project_id": int(row["project_id"]),
+            "project_name": row["project_name"] if "project_name" in row_keys else None,
+            "client_name": row["client_name"] if "client_name" in row_keys else None,
+            "currency": row["currency"] if "currency" in row_keys else None,
+            "title": row["title"],
+            "description": row["description"],
+            "requested_scope": requested_scope,
+            "price": round(float(row["price"]), 2),
+            "estimated_days": int(row["estimated_days"]) if row["estimated_days"] is not None else None,
+            "status": row["status"],
+            "requested_at": row["requested_at"],
+            "approved_at": row["approved_at"],
+            "completed_at": row["completed_at"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
 
-def _build_overview(projects: list[dict[str, Any]], currency: str | None) -> dict[str, Any]:
+    def list_change_requests(
+        self,
+        project_id: int | None = None,
+        status_filter: str | None = None,
+        currency_filter: str | None = None,
+    ) -> list[dict[str, Any]]:
+        query = """
+            SELECT
+                cr.id,
+                cr.project_id,
+                p.project_name,
+                p.client_name,
+                p.currency,
+                cr.title,
+                cr.description,
+                cr.requested_scope_json,
+                cr.price,
+                cr.estimated_days,
+                cr.status,
+                cr.requested_at,
+                cr.approved_at,
+                cr.completed_at,
+                cr.created_at,
+                cr.updated_at
+            FROM change_requests cr
+            JOIN projects p ON p.id = cr.project_id
+        """
+        where_parts: list[str] = []
+        params: list[Any] = []
+        if project_id is not None:
+            where_parts.append("cr.project_id = ?")
+            params.append(int(project_id))
+        if status_filter:
+            where_parts.append("cr.status = ?")
+            params.append(status_filter)
+        if currency_filter:
+            where_parts.append("p.currency = ?")
+            params.append(currency_filter)
+        if where_parts:
+            query += " WHERE " + " AND ".join(where_parts)
+        query += " ORDER BY cr.created_at DESC, cr.id DESC"
+
+        with self._connect() as conn:
+            rows = self._execute(conn, query, tuple(params)).fetchall()
+        return [self._serialize_change_request(row) for row in rows]
+
+    def get_change_request(self, change_request_id: int) -> dict[str, Any]:
+        query = """
+            SELECT
+                cr.id,
+                cr.project_id,
+                p.project_name,
+                p.client_name,
+                p.currency,
+                cr.title,
+                cr.description,
+                cr.requested_scope_json,
+                cr.price,
+                cr.estimated_days,
+                cr.status,
+                cr.requested_at,
+                cr.approved_at,
+                cr.completed_at,
+                cr.created_at,
+                cr.updated_at
+            FROM change_requests cr
+            JOIN projects p ON p.id = cr.project_id
+            WHERE cr.id = ?
+        """
+        with self._connect() as conn:
+            row = self._execute(conn, query, (change_request_id,)).fetchone()
+        if row is None:
+            raise KeyError("Change request not found")
+        return self._serialize_change_request(row)
+
+    def create_change_request(self, payload: dict[str, Any]) -> dict[str, Any]:
+        project_id = int(payload["project_id"])
+        self.get_project(project_id)
+
+        title = str(payload.get("title", "")).strip()
+        if not title:
+            raise ValueError("Change request title is required.")
+
+        description = str(payload.get("description", "")).strip() or None
+        requested_scope = payload.get("requested_scope", [])
+        if requested_scope in (None, ""):
+            requested_scope = []
+        if not isinstance(requested_scope, list):
+            raise ValueError("requested_scope must be an array.")
+
+        price = _coerce_amount(payload.get("price", 0))
+        if price < 0:
+            raise ValueError("Change request price must be positive.")
+
+        estimated_days_raw = payload.get("estimated_days")
+        estimated_days = None if estimated_days_raw in (None, "") else int(estimated_days_raw)
+        if estimated_days is not None and estimated_days < 0:
+            raise ValueError("estimated_days must be greater than or equal to zero.")
+
+        status = _normalize_change_request_status(payload.get("status", "draft"))
+        now_iso = datetime.utcnow().isoformat() + "Z"
+        approved_at = now_iso if status in {"approved", "in_progress", "completed"} else None
+        completed_at = now_iso if status == "completed" else None
+
+        params = (
+            project_id,
+            title,
+            description,
+            json.dumps(requested_scope),
+            price,
+            estimated_days,
+            status,
+            approved_at,
+            completed_at,
+        )
+        with self._connect() as conn:
+            if self.use_postgres:
+                row = self._execute(
+                    conn,
+                    """
+                    INSERT INTO change_requests (
+                        project_id, title, description, requested_scope_json, price, estimated_days, status, approved_at, completed_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    RETURNING id
+                    """,
+                    params,
+                ).fetchone()
+                change_request_id = int(row["id"])
+            else:
+                cur = self._execute(
+                    conn,
+                    """
+                    INSERT INTO change_requests (
+                        project_id, title, description, requested_scope_json, price, estimated_days, status, approved_at, completed_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    params,
+                )
+                change_request_id = int(cur.lastrowid)
+        return self.get_change_request(change_request_id)
+
+    def update_change_request(self, change_request_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        existing = self.get_change_request(change_request_id)
+
+        project_id = int(payload.get("project_id", existing["project_id"]))
+        self.get_project(project_id)
+
+        title = str(payload.get("title", existing["title"])).strip()
+        if not title:
+            raise ValueError("Change request title is required.")
+
+        description = str(payload.get("description", existing["description"] or "")).strip() or None
+        requested_scope = payload.get("requested_scope", existing["requested_scope"])
+        if requested_scope in (None, ""):
+            requested_scope = []
+        if not isinstance(requested_scope, list):
+            raise ValueError("requested_scope must be an array.")
+
+        price = _coerce_amount(payload.get("price", existing["price"]))
+        if price < 0:
+            raise ValueError("Change request price must be positive.")
+
+        if "estimated_days" in payload:
+            estimated_days_raw = payload.get("estimated_days")
+            estimated_days = None if estimated_days_raw in (None, "") else int(estimated_days_raw)
+        else:
+            estimated_days = existing["estimated_days"]
+        if estimated_days is not None and estimated_days < 0:
+            raise ValueError("estimated_days must be greater than or equal to zero.")
+
+        status = _normalize_change_request_status(payload.get("status", existing["status"]))
+        approved_at = existing["approved_at"]
+        completed_at = existing["completed_at"]
+        now_iso = datetime.utcnow().isoformat() + "Z"
+
+        if status in {"approved", "in_progress", "completed"} and not approved_at:
+            approved_at = now_iso
+        if status == "completed":
+            completed_at = completed_at or now_iso
+        else:
+            completed_at = None
+
+        with self._connect() as conn:
+            self._execute(
+                conn,
+                """
+                UPDATE change_requests
+                SET project_id = ?, title = ?, description = ?, requested_scope_json = ?, price = ?, estimated_days = ?,
+                    status = ?, approved_at = ?, completed_at = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (
+                    project_id,
+                    title,
+                    description,
+                    json.dumps(requested_scope),
+                    price,
+                    estimated_days,
+                    status,
+                    approved_at,
+                    completed_at,
+                    change_request_id,
+                ),
+            )
+        return self.get_change_request(change_request_id)
+
+    def delete_change_request(self, change_request_id: int) -> None:
+        with self._connect() as conn:
+            self._execute(conn, "DELETE FROM change_requests WHERE id = ?", (change_request_id,))
+
+
+def _build_overview(
+    projects: list[dict[str, Any]],
+    currency: str | None,
+    change_requests: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     totals = {
         "total_projects": len(projects),
         "active_projects": 0,
         "completed_projects": 0,
+        "completed_revenue": 0.0,
         "pending_payments_count": 0,
         "pending_payments_amount": 0.0,
         "overdue_payments_count": 0,
@@ -435,6 +838,11 @@ def _build_overview(projects: list[dict[str, Any]], currency: str | None) -> dic
         "portfolio_payment_progress": 0.0,
     }
     upcoming_deadlines: list[dict[str, Any]] = []
+    change_requests = change_requests or []
+    open_change_requests = 0
+    approved_change_value = 0.0
+    collected_change_revenue = 0.0
+    pending_change_value = 0.0
 
     for project in projects:
         metrics = project["metrics"]
@@ -444,6 +852,7 @@ def _build_overview(projects: list[dict[str, Any]], currency: str | None) -> dic
 
         if metrics["effective_status"] == "completed":
             totals["completed_projects"] += 1
+            totals["completed_revenue"] += project["paid_amount"]
         elif metrics["effective_status"] != "cancelled":
             totals["active_projects"] += 1
 
@@ -467,10 +876,42 @@ def _build_overview(projects: list[dict[str, Any]], currency: str | None) -> dic
     if totals["total_contract_value"] > 0:
         totals["portfolio_payment_progress"] = round((totals["total_paid"] / totals["total_contract_value"]) * 100, 2)
 
-    for key in ("pending_payments_amount", "overdue_payments_amount", "total_contract_value", "total_paid", "total_remaining"):
+    for key in (
+        "completed_revenue",
+        "pending_payments_amount",
+        "overdue_payments_amount",
+        "total_contract_value",
+        "total_paid",
+        "total_remaining",
+    ):
         totals[key] = round(totals[key], 2)
 
-    return {"currency": currency, "totals": totals, "upcoming_deadlines": upcoming_deadlines}
+    for change_request in change_requests:
+        status = change_request["status"]
+        value = float(change_request["price"])
+        if status not in {"completed", "rejected", "cancelled"}:
+            open_change_requests += 1
+        if status in {"approved", "in_progress", "completed"}:
+            approved_change_value += value
+        if status in {"approved", "in_progress"}:
+            pending_change_value += value
+        if status == "completed":
+            collected_change_revenue += value
+
+    change_requests_summary = {
+        "total_requests": len(change_requests),
+        "open_requests": open_change_requests,
+        "approved_value": round(approved_change_value, 2),
+        "pending_value": round(pending_change_value, 2),
+        "collected_revenue": round(collected_change_revenue, 2),
+    }
+
+    return {
+        "currency": currency,
+        "totals": totals,
+        "upcoming_deadlines": upcoming_deadlines,
+        "change_requests_summary": change_requests_summary,
+    }
 
 
 def _serialize_csv(projects: list[dict[str, Any]]) -> str:
@@ -515,7 +956,7 @@ def _serialize_csv(projects: list[dict[str, Any]]) -> str:
     return output.getvalue()
 
 
-repo = DashboardRepository(DB_PATH)
+repo = DashboardRepository(DB_PATH, DATABASE_URL)
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"), static_folder=str(BASE_DIR / "static"))
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-in-production")
 
@@ -633,6 +1074,7 @@ def public_health() -> Response:
             "status": "ok",
             "app_deploy_target": APP_DEPLOY_TARGET,
             "admin_module_enabled": ADMIN_MODULE_ENABLED,
+            "database_backend": "postgres" if repo.use_postgres else "sqlite",
             "timestamp": datetime.utcnow().isoformat() + "Z",
         }
     )
@@ -756,13 +1198,95 @@ def api_delete_project(project_id: int) -> Response:
     return jsonify({"message": "Project deleted"})
 
 
+@app.route("/api/admin/change-requests", methods=["GET"])
+@_require_admin_api
+def api_list_change_requests() -> Response:
+    project_id_raw = request.args.get("project_id")
+    status_raw = request.args.get("status")
+    currency_raw = request.args.get("currency")
+
+    project_id = None
+    if project_id_raw not in (None, ""):
+        try:
+            project_id = int(project_id_raw)
+        except ValueError:
+            return jsonify({"error": "project_id must be an integer."}), 400
+
+    status_filter = None
+    if status_raw:
+        try:
+            status_filter = _normalize_change_request_status(status_raw)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    currency_filter = None
+    if currency_raw:
+        try:
+            currency_filter = _normalize_currency(currency_raw)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    change_requests = repo.list_change_requests(
+        project_id=project_id,
+        status_filter=status_filter,
+        currency_filter=currency_filter,
+    )
+    return jsonify({"change_requests": change_requests})
+
+
+@app.route("/api/admin/change-requests", methods=["POST"])
+@_require_admin_api
+def api_create_change_request() -> Response:
+    payload = request.get_json(silent=True) or {}
+    required = ["project_id", "title", "price"]
+    missing = [field for field in required if payload.get(field) in (None, "")]
+    if missing:
+        return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
+    try:
+        change_request = repo.create_change_request(payload)
+    except (KeyError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"change_request": change_request}), 201
+
+
+@app.route("/api/admin/change-requests/<int:change_request_id>", methods=["GET"])
+@_require_admin_api
+def api_get_change_request(change_request_id: int) -> Response:
+    try:
+        change_request = repo.get_change_request(change_request_id)
+    except KeyError:
+        return jsonify({"error": "Change request not found"}), 404
+    return jsonify({"change_request": change_request})
+
+
+@app.route("/api/admin/change-requests/<int:change_request_id>", methods=["PUT"])
+@_require_admin_api
+def api_update_change_request(change_request_id: int) -> Response:
+    payload = request.get_json(silent=True) or {}
+    try:
+        change_request = repo.update_change_request(change_request_id, payload)
+    except KeyError:
+        return jsonify({"error": "Change request not found"}), 404
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"change_request": change_request})
+
+
+@app.route("/api/admin/change-requests/<int:change_request_id>", methods=["DELETE"])
+@_require_admin_api
+def api_delete_change_request(change_request_id: int) -> Response:
+    repo.delete_change_request(change_request_id)
+    return jsonify({"message": "Change request deleted"})
+
+
 @app.route("/api/admin/overview", methods=["GET"])
 @_require_admin_api
 def api_overview() -> Response:
     currency = request.args.get("currency")
     currency_filter = _normalize_currency(currency) if currency else None
     projects = repo.list_projects(currency_filter)
-    return jsonify(_build_overview(projects, currency_filter))
+    change_requests = repo.list_change_requests(currency_filter=currency_filter)
+    return jsonify(_build_overview(projects, currency_filter, change_requests))
 
 
 @app.route("/api/admin/export.csv", methods=["GET"])
@@ -786,13 +1310,15 @@ def api_export_json() -> Response:
     currency = request.args.get("currency")
     currency_filter = _normalize_currency(currency) if currency else None
     projects = repo.list_projects(currency_filter)
-    overview = _build_overview(projects, currency_filter)
+    change_requests = repo.list_change_requests(currency_filter=currency_filter)
+    overview = _build_overview(projects, currency_filter, change_requests)
     payload = {
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "app_deploy_target": APP_DEPLOY_TARGET,
         "currency_filter": currency_filter,
         "overview": overview,
         "projects": projects,
+        "change_requests": change_requests,
     }
     suffix = currency_filter.lower() if currency_filter else "all-currencies"
     return Response(
@@ -809,8 +1335,10 @@ def api_share_report() -> Response:
     currency = payload.get("currency")
     currency_filter = _normalize_currency(currency) if currency else None
     projects = repo.list_projects(currency_filter)
-    overview = _build_overview(projects, currency_filter)
+    change_requests = repo.list_change_requests(currency_filter=currency_filter)
+    overview = _build_overview(projects, currency_filter, change_requests)
     totals = overview["totals"]
+    change_summary = overview["change_requests_summary"]
     symbol = CURRENCY_SYMBOLS.get(currency_filter or "USD", "$")
 
     client_email = payload.get("client_email", "").strip()
@@ -827,6 +1355,9 @@ def api_share_report() -> Response:
         f"Completed projects: {totals['completed_projects']}\n"
         f"Pending payments: {totals['pending_payments_count']} ({symbol}{totals['pending_payments_amount']:.2f})\n"
         f"Overdue payments: {totals['overdue_payments_count']} ({symbol}{totals['overdue_payments_amount']:.2f})\n"
+        f"Open change requests: {change_summary['open_requests']}\n"
+        f"Approved change value: {symbol}{change_summary['approved_value']:.2f}\n"
+        f"Collected change revenue: {symbol}{change_summary['collected_revenue']:.2f}\n"
         f"Upcoming deadlines: {totals['upcoming_deadlines_count']}\n"
         f"Portfolio payment progress: {totals['portfolio_payment_progress']}%\n\n"
         "Regards,\nDigi-Tech Admin"

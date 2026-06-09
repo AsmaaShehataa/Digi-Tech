@@ -21,8 +21,10 @@ Admin module is **disabled** in public mode and returns `404`.
 
 - `APP_DEPLOY_TARGET=public`
 - `FLASK_SECRET_KEY=<strong-secret>`
+- `DATABASE_URL=<postgres-connection-string>`
 - `PUBLIC_API_ALLOWED_ORIGINS=<frontend-domain-allowlist or *>`
-  - Example: `https://www.digi-tech.com,https://digi-tech.com`
+- Example: `https://www.digi-tech.com,https://digi-tech.com`
+
 
 Optional:
 
@@ -33,10 +35,17 @@ Optional:
 
 - `APP_DEPLOY_TARGET=admin_internal`
 - `FLASK_SECRET_KEY=<strong-secret>`
+- `DATABASE_URL=<postgres-connection-string>`
 - `ADMIN_EMAIL=<admin email>`
 - `ADMIN_PASSWORD=<admin password>` or `ADMIN_PASSWORD_HASH=<hash>`
 - `ADMIN_ALLOWED_IPS=<comma-separated CIDRs>`
   - Example: `203.0.113.44/32,198.51.100.0/24`
+
+### Database backend behavior
+
+- If `DATABASE_URL` is set, app uses PostgreSQL (recommended for Render and production).
+- If `DATABASE_URL` is not set, app falls back to local SQLite (`data/admin_dashboard.db`).
+- Render free web service filesystem is ephemeral, so SQLite should be used for local/dev only.
 
 ## Public API routes
 

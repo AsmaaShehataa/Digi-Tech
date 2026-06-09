@@ -13,7 +13,7 @@ The site is designed for a seamless user experience, global accessibility, and s
 - `index.html` — Semantic page layout and content sections
 - `styles.css` — Responsive, minimalist visual design system
 - `script.js` — Multilingual UI + AI-style recommendation interaction
-- `admin_backend.py` — Flask + SQLite backend for admin route and APIs
+- `admin_backend.py` — Flask backend for admin route and APIs (Postgres via `DATABASE_URL`, SQLite fallback)
 - `templates/admin_login.html` — Secure admin login page (email/password)
 - `templates/admin_dashboard.html` — Admin project/payment dashboard
 - `static/admin-auth.css` — Login page styling
@@ -115,6 +115,7 @@ Set production credentials via env vars:
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_HASH`)
 - `FLASK_SECRET_KEY`
+- `DATABASE_URL` (recommended in production, e.g. Render Postgres)
 
 ### Deployment modes (important)
 
