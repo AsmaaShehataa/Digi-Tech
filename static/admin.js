@@ -372,6 +372,7 @@ const renderChangeRequests = (changeRequests) => {
           <td>
             <div class="actions-cell">
               <button class="button ghost small email-change-request" type="button" data-id="${changeRequest.id}">Email Client</button>
+              <button class="button ghost small gmail-change-request" type="button" data-id="${changeRequest.id}">Open in Gmail</button>
               <button class="button ghost small edit-change-request" type="button" data-id="${changeRequest.id}">Edit</button>
               <button class="button danger small delete-change-request" type="button" data-id="${changeRequest.id}">Delete</button>
             </div>
@@ -422,6 +423,26 @@ const buildChangeRequestEmailDraft = (changeRequest) => {
     "Best regards,\nDigi-Tech";
 
   return { subject, body };
+};
+
+const promptRecipientEmail = (changeRequest) => {
+  const defaultRecipient = shareForm?.client_email?.value?.trim() || "";
+  const recipient = window
+    .prompt(`Enter ${changeRequest.client_name || "client"} email address:`, defaultRecipient)
+    ?.trim();
+
+  if (recipient === undefined) {
+    return null;
+  }
+  if (!recipient) {
+    changeRequestFeedback.textContent = "Client email is required to open the draft.";
+    changeRequestFeedback.className = "error";
+    return null;
+  }
+  if (shareForm?.client_email) {
+    shareForm.client_email.value = recipient;
+  }
+  return recipient;
 };
 
 const renderOverview = (overview) => {
@@ -584,29 +605,27 @@ const deleteChangeRequest = async (changeRequestId) => {
 const emailChangeRequest = (changeRequestId) => {
   const changeRequest = cachedChangeRequests.find((item) => Number(item.id) === Number(changeRequestId));
   if (!changeRequest) return;
-
-  const defaultRecipient = shareForm?.client_email?.value?.trim() || "";
-  const recipient = window
-    .prompt(`Enter ${changeRequest.client_name || "client"} email address:`, defaultRecipient)
-    ?.trim();
-
-  if (recipient === undefined) {
-    return;
-  }
-
-  if (!recipient) {
-    changeRequestFeedback.textContent = "Client email is required to open the draft.";
-    changeRequestFeedback.className = "error";
-    return;
-  }
-
-  if (shareForm?.client_email) {
-    shareForm.client_email.value = recipient;
-  }
+  const recipient = promptRecipientEmail(changeRequest);
+  if (!recipient) return;
 
   const { subject, body } = buildChangeRequestEmailDraft(changeRequest);
   const mailto = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   window.location.href = mailto;
+};
+
+const openChangeRequestInGmail = (changeRequestId) => {
+  const changeRequest = cachedChangeRequests.find((item) => Number(item.id) === Number(changeRequestId));
+  if (!changeRequest) return;
+  const recipient = promptRecipientEmail(changeRequest);
+  if (!recipient) return;
+
+  const { subject, body } = buildChangeRequestEmailDraft(changeRequest);
+  const gmailComposeUrl =
+    `https://mail.google.com/mail/?view=cm&fs=1` +
+    `&to=${encodeURIComponent(recipient)}` +
+    `&su=${encodeURIComponent(subject)}` +
+    `&body=${encodeURIComponent(body)}`;
+  window.open(gmailComposeUrl, "_blank", "noopener,noreferrer");
 };
 
 form.addEventListener("submit", async (event) => {
@@ -712,10 +731,14 @@ if (changeRequestForm) {
 if (changeRequestsTableBody) {
   changeRequestsTableBody.addEventListener("click", (event) => {
     const emailButton = event.target.closest(".email-change-request");
+    const gmailButton = event.target.closest(".gmail-change-request");
     const editButton = event.target.closest(".edit-change-request");
     const deleteButton = event.target.closest(".delete-change-request");
     if (emailButton) {
       emailChangeRequest(Number(emailButton.dataset.id));
+    }
+    if (gmailButton) {
+      openChangeRequestInGmail(Number(gmailButton.dataset.id));
     }
     if (editButton) {
       enterChangeRequestEditMode(Number(editButton.dataset.id));
