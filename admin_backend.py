@@ -105,6 +105,17 @@ def _normalize_change_request_status(value: Any) -> str:
     return status
 
 
+def _coerce_optional_date(value: Any, field_name: str) -> str | None:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return None
+    try:
+        _parse_date(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid {field_name}. Expected YYYY-MM-DD format.") from exc
+    return raw_value
+
+
 def _sanitize_milestones(raw_milestones: Any, start_date: str, deadline: str, total_price: float) -> list[dict[str, Any]]:
     milestones: list[dict[str, Any]] = []
     if not raw_milestones:
@@ -203,6 +214,49 @@ def _compute_project_metrics(project: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _compute_change_request_metrics(change_request: dict[str, Any]) -> dict[str, Any]:
+    total_price = float(change_request["price"])
+    deposit_amount = float(change_request.get("deposit_amount", 0))
+    deposit_amount = min(max(deposit_amount, 0.0), total_price)
+    remaining_amount = max(total_price - deposit_amount, 0.0)
+    status = str(change_request["status"])
+
+    deposit_recognized = deposit_amount if status in {"approved", "in_progress", "completed"} else 0.0
+
+    start_date_raw = change_request.get("start_date")
+    deadline_raw = change_request.get("deadline")
+    start_date = _parse_date(start_date_raw) if start_date_raw else None
+    deadline = _parse_date(deadline_raw) if deadline_raw else None
+    today = _today()
+
+    days_until_start = (start_date - today).days if start_date else None
+    days_remaining = (deadline - today).days if deadline else None
+    timeline_state = "on_track"
+    if status == "completed":
+        timeline_state = "completed"
+    elif deadline and days_remaining is not None and days_remaining < 0:
+        timeline_state = "overdue"
+    elif deadline and days_remaining is not None and days_remaining <= 7:
+        timeline_state = "upcoming"
+
+    final_revenue_eligible = status == "completed" and (deadline is None or deadline <= today)
+    final_revenue_recognized = remaining_amount if final_revenue_eligible else 0.0
+    recognized_revenue = deposit_recognized + final_revenue_recognized
+    settlement_pending = max(total_price - recognized_revenue, 0.0)
+
+    return {
+        "remaining_amount": round(remaining_amount, 2),
+        "deposit_recognized": round(deposit_recognized, 2),
+        "final_revenue_recognized": round(final_revenue_recognized, 2),
+        "recognized_revenue": round(recognized_revenue, 2),
+        "settlement_pending": round(settlement_pending, 2),
+        "days_until_start": days_until_start,
+        "days_remaining": days_remaining,
+        "timeline_state": timeline_state,
+        "final_revenue_eligible": final_revenue_eligible,
+    }
+
+
 class DashboardRepository:
     def __init__(self, db_path: Path, database_url: str | None = None) -> None:
         self.db_path = db_path
@@ -279,6 +333,9 @@ class DashboardRepository:
                         description TEXT,
                         requested_scope_json TEXT NOT NULL DEFAULT '[]',
                         price DOUBLE PRECISION NOT NULL DEFAULT 0,
+                        deposit_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+                        start_date TEXT,
+                        deadline TEXT,
                         estimated_days INTEGER,
                         status TEXT NOT NULL DEFAULT 'draft',
                         requested_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -335,6 +392,9 @@ class DashboardRepository:
                         description TEXT,
                         requested_scope_json TEXT NOT NULL DEFAULT '[]',
                         price REAL NOT NULL DEFAULT 0,
+                        deposit_amount REAL NOT NULL DEFAULT 0,
+                        start_date TEXT,
+                        deadline TEXT,
                         estimated_days INTEGER,
                         status TEXT NOT NULL DEFAULT 'draft',
                         requested_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -347,6 +407,8 @@ class DashboardRepository:
                     """
                 )
 
+            self._ensure_change_request_columns(conn)
+
             existing = self._execute(conn, "SELECT id FROM admin_users WHERE email = ?", (DEFAULT_ADMIN_EMAIL,)).fetchone()
             if not existing:
                 active_value = True if self.use_postgres else 1
@@ -355,6 +417,26 @@ class DashboardRepository:
                     "INSERT INTO admin_users (email, password_hash, is_active) VALUES (?, ?, ?)",
                     (DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD_HASH, active_value),
                 )
+
+    def _ensure_change_request_columns(self, conn) -> None:
+        if self.use_postgres:
+            statements = [
+                "ALTER TABLE change_requests ADD COLUMN IF NOT EXISTS deposit_amount DOUBLE PRECISION NOT NULL DEFAULT 0",
+                "ALTER TABLE change_requests ADD COLUMN IF NOT EXISTS start_date TEXT",
+                "ALTER TABLE change_requests ADD COLUMN IF NOT EXISTS deadline TEXT",
+            ]
+            for statement in statements:
+                conn.execute(statement)
+            return
+
+        pragma_rows = conn.execute("PRAGMA table_info(change_requests)").fetchall()
+        existing_columns = {row[1] for row in pragma_rows}
+        if "deposit_amount" not in existing_columns:
+            conn.execute("ALTER TABLE change_requests ADD COLUMN deposit_amount REAL NOT NULL DEFAULT 0")
+        if "start_date" not in existing_columns:
+            conn.execute("ALTER TABLE change_requests ADD COLUMN start_date TEXT")
+        if "deadline" not in existing_columns:
+            conn.execute("ALTER TABLE change_requests ADD COLUMN deadline TEXT")
 
     def authenticate_admin(self, email: str, password: str) -> dict[str, Any] | None:
         email = email.strip().lower()
@@ -587,7 +669,7 @@ class DashboardRepository:
     def _serialize_change_request(self, row: Mapping[str, Any]) -> dict[str, Any]:
         row_keys = set(row.keys()) if hasattr(row, "keys") else set()
         requested_scope = json.loads(row["requested_scope_json"] or "[]")
-        return {
+        change_request = {
             "id": int(row["id"]),
             "project_id": int(row["project_id"]),
             "project_name": row["project_name"] if "project_name" in row_keys else None,
@@ -597,6 +679,9 @@ class DashboardRepository:
             "description": row["description"],
             "requested_scope": requested_scope,
             "price": round(float(row["price"]), 2),
+            "deposit_amount": round(float(row["deposit_amount"] or 0), 2),
+            "start_date": row["start_date"],
+            "deadline": row["deadline"],
             "estimated_days": int(row["estimated_days"]) if row["estimated_days"] is not None else None,
             "status": row["status"],
             "requested_at": row["requested_at"],
@@ -605,6 +690,8 @@ class DashboardRepository:
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
         }
+        change_request["metrics"] = _compute_change_request_metrics(change_request)
+        return change_request
 
     def list_change_requests(
         self,
@@ -623,6 +710,9 @@ class DashboardRepository:
                 cr.description,
                 cr.requested_scope_json,
                 cr.price,
+                cr.deposit_amount,
+                cr.start_date,
+                cr.deadline,
                 cr.estimated_days,
                 cr.status,
                 cr.requested_at,
@@ -664,6 +754,9 @@ class DashboardRepository:
                 cr.description,
                 cr.requested_scope_json,
                 cr.price,
+                cr.deposit_amount,
+                cr.start_date,
+                cr.deadline,
                 cr.estimated_days,
                 cr.status,
                 cr.requested_at,
@@ -699,6 +792,18 @@ class DashboardRepository:
         price = _coerce_amount(payload.get("price", 0))
         if price < 0:
             raise ValueError("Change request price must be positive.")
+        deposit_amount = _coerce_amount(payload.get("deposit_amount", 0))
+        if deposit_amount < 0:
+            raise ValueError("Deposit must be greater than or equal to zero.")
+        if deposit_amount > price:
+            raise ValueError("Deposit cannot exceed the total change request price.")
+
+        start_date = _coerce_optional_date(payload.get("start_date"), "start date")
+        deadline = _coerce_optional_date(payload.get("deadline"), "deadline")
+        if (start_date and not deadline) or (deadline and not start_date):
+            raise ValueError("Please provide both start date and deadline for the change request.")
+        if start_date and deadline and _parse_date(deadline) < _parse_date(start_date):
+            raise ValueError("Change request deadline cannot be before its start date.")
 
         estimated_days_raw = payload.get("estimated_days")
         estimated_days = None if estimated_days_raw in (None, "") else int(estimated_days_raw)
@@ -716,6 +821,9 @@ class DashboardRepository:
             description,
             json.dumps(requested_scope),
             price,
+            deposit_amount,
+            start_date,
+            deadline,
             estimated_days,
             status,
             approved_at,
@@ -727,8 +835,9 @@ class DashboardRepository:
                     conn,
                     """
                     INSERT INTO change_requests (
-                        project_id, title, description, requested_scope_json, price, estimated_days, status, approved_at, completed_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        project_id, title, description, requested_scope_json, price, deposit_amount, start_date, deadline,
+                        estimated_days, status, approved_at, completed_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     RETURNING id
                     """,
                     params,
@@ -739,8 +848,9 @@ class DashboardRepository:
                     conn,
                     """
                     INSERT INTO change_requests (
-                        project_id, title, description, requested_scope_json, price, estimated_days, status, approved_at, completed_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        project_id, title, description, requested_scope_json, price, deposit_amount, start_date, deadline,
+                        estimated_days, status, approved_at, completed_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     params,
                 )
@@ -767,6 +877,24 @@ class DashboardRepository:
         price = _coerce_amount(payload.get("price", existing["price"]))
         if price < 0:
             raise ValueError("Change request price must be positive.")
+        deposit_amount = _coerce_amount(payload.get("deposit_amount", existing["deposit_amount"]))
+        if deposit_amount < 0:
+            raise ValueError("Deposit must be greater than or equal to zero.")
+        if deposit_amount > price:
+            raise ValueError("Deposit cannot exceed the total change request price.")
+
+        if "start_date" in payload:
+            start_date = _coerce_optional_date(payload.get("start_date"), "start date")
+        else:
+            start_date = existing["start_date"]
+        if "deadline" in payload:
+            deadline = _coerce_optional_date(payload.get("deadline"), "deadline")
+        else:
+            deadline = existing["deadline"]
+        if (start_date and not deadline) or (deadline and not start_date):
+            raise ValueError("Please provide both start date and deadline for the change request.")
+        if start_date and deadline and _parse_date(deadline) < _parse_date(start_date):
+            raise ValueError("Change request deadline cannot be before its start date.")
 
         if "estimated_days" in payload:
             estimated_days_raw = payload.get("estimated_days")
@@ -793,8 +921,9 @@ class DashboardRepository:
                 conn,
                 """
                 UPDATE change_requests
-                SET project_id = ?, title = ?, description = ?, requested_scope_json = ?, price = ?, estimated_days = ?,
-                    status = ?, approved_at = ?, completed_at = ?, updated_at = CURRENT_TIMESTAMP
+                SET project_id = ?, title = ?, description = ?, requested_scope_json = ?, price = ?, deposit_amount = ?,
+                    start_date = ?, deadline = ?, estimated_days = ?, status = ?, approved_at = ?, completed_at = ?,
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """,
                 (
@@ -803,6 +932,9 @@ class DashboardRepository:
                     description,
                     json.dumps(requested_scope),
                     price,
+                    deposit_amount,
+                    start_date,
+                    deadline,
                     estimated_days,
                     status,
                     approved_at,
@@ -843,6 +975,9 @@ def _build_overview(
     approved_change_value = 0.0
     collected_change_revenue = 0.0
     pending_change_value = 0.0
+    collected_change_deposits = 0.0
+    pending_change_settlements = 0.0
+    recognized_change_revenue = 0.0
 
     for project in projects:
         metrics = project["metrics"]
@@ -889,14 +1024,23 @@ def _build_overview(
     for change_request in change_requests:
         status = change_request["status"]
         value = float(change_request["price"])
+        deposit_amount = float(change_request.get("deposit_amount", 0))
+        remaining_amount = max(value - deposit_amount, 0.0)
+        change_metrics = change_request.get("metrics") or _compute_change_request_metrics(change_request)
         if status not in {"completed", "rejected", "cancelled"}:
             open_change_requests += 1
         if status in {"approved", "in_progress", "completed"}:
             approved_change_value += value
         if status in {"approved", "in_progress"}:
             pending_change_value += value
+        collected_change_deposits += change_metrics["deposit_recognized"]
+        recognized_change_revenue += change_metrics["recognized_revenue"]
+        pending_change_settlements += change_metrics["settlement_pending"]
         if status == "completed":
             collected_change_revenue += value
+
+    totals["total_revenue_with_addons"] = round(totals["total_paid"] + recognized_change_revenue, 2)
+    totals["completed_revenue_with_addons"] = round(totals["completed_revenue"] + recognized_change_revenue, 2)
 
     change_requests_summary = {
         "total_requests": len(change_requests),
@@ -904,6 +1048,12 @@ def _build_overview(
         "approved_value": round(approved_change_value, 2),
         "pending_value": round(pending_change_value, 2),
         "collected_revenue": round(collected_change_revenue, 2),
+        "deposit_collected": round(collected_change_deposits, 2),
+        "recognized_revenue": round(recognized_change_revenue, 2),
+        "pending_settlements": round(pending_change_settlements, 2),
+        "total_deposit_planned": round(sum(float(cr.get("deposit_amount", 0)) for cr in change_requests), 2),
+        "total_remaining_planned": round(sum(max(float(cr["price"]) - float(cr.get("deposit_amount", 0)), 0.0) for cr in change_requests), 2),
+        "finalized_settlements": round(max(recognized_change_revenue - collected_change_deposits, 0.0), 2),
     }
 
     return {
@@ -1353,10 +1503,14 @@ def api_share_report() -> Response:
         f"Total projects: {totals['total_projects']}\n"
         f"Active projects: {totals['active_projects']}\n"
         f"Completed projects: {totals['completed_projects']}\n"
+        f"Total revenues (including add-ons): {symbol}{totals.get('total_revenue_with_addons', totals['total_paid']):.2f}\n"
         f"Pending payments: {totals['pending_payments_count']} ({symbol}{totals['pending_payments_amount']:.2f})\n"
         f"Overdue payments: {totals['overdue_payments_count']} ({symbol}{totals['overdue_payments_amount']:.2f})\n"
         f"Open change requests: {change_summary['open_requests']}\n"
         f"Approved change value: {symbol}{change_summary['approved_value']:.2f}\n"
+        f"Change deposits recognized: {symbol}{change_summary.get('deposit_collected', 0):.2f}\n"
+        f"Change revenue recognized: {symbol}{change_summary.get('recognized_revenue', 0):.2f}\n"
+        f"Pending change settlements: {symbol}{change_summary.get('pending_settlements', 0):.2f}\n"
         f"Collected change revenue: {symbol}{change_summary['collected_revenue']:.2f}\n"
         f"Upcoming deadlines: {totals['upcoming_deadlines_count']}\n"
         f"Portfolio payment progress: {totals['portfolio_payment_progress']}%\n\n"

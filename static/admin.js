@@ -52,6 +52,44 @@ const getCurrencyFormatter = (currencyCode) => {
 
 const formatCurrency = (value, currencyCode) => getCurrencyFormatter(currencyCode).format(Number(value || 0));
 
+const parseDateInput = (value) => {
+  if (!value) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const computeFallbackChangeRequestMetrics = (changeRequest) => {
+  const totalPrice = Number(changeRequest.price || 0);
+  const depositAmount = Math.min(Math.max(Number(changeRequest.deposit_amount || 0), 0), totalPrice);
+  const remainingAmount = Math.max(totalPrice - depositAmount, 0);
+  const status = changeRequest.status;
+  const today = new Date();
+  const deadlineDate = parseDateInput(changeRequest.deadline);
+  const startDate = parseDateInput(changeRequest.start_date);
+  const deadlineReached = !deadlineDate || deadlineDate <= today;
+  const depositRecognized = ["approved", "in_progress", "completed"].includes(status) ? depositAmount : 0;
+  const finalRevenueRecognized = status === "completed" && deadlineReached ? remainingAmount : 0;
+  let timelineState = "on_track";
+  if (status === "completed") {
+    timelineState = "completed";
+  } else if (deadlineDate && deadlineDate < today) {
+    timelineState = "overdue";
+  } else if (deadlineDate) {
+    const daysRemaining = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
+    if (daysRemaining <= 7) {
+      timelineState = "upcoming";
+    }
+  }
+  return {
+    remaining_amount: remainingAmount,
+    deposit_recognized: depositRecognized,
+    final_revenue_recognized: finalRevenueRecognized,
+    recognized_revenue: depositRecognized + finalRevenueRecognized,
+    settlement_pending: Math.max(totalPrice - (depositRecognized + finalRevenueRecognized), 0),
+    timeline_state: timelineState,
+  };
+};
+
 const resolveDashboardCurrency = (overview, projects) => {
   if (overview?.currency) return overview.currency;
   const projectCurrencies = new Set(projects.map((project) => project.currency).filter(Boolean));
@@ -196,7 +234,9 @@ const renderProjects = (projects, overview) => {
   const totalContractValue =
     Number(totals.total_contract_value) || projects.reduce((sum, project) => sum + Number(project.total_price || 0), 0);
   const totalRevenueAmount =
-    Number(totals.total_paid) || projects.reduce((sum, project) => sum + Number(project.paid_amount || 0), 0);
+    Number(totals.total_revenue_with_addons) ||
+    Number(totals.total_paid) ||
+    projects.reduce((sum, project) => sum + Number(project.paid_amount || 0), 0);
   const totalRemainingAmount =
     Number(totals.total_remaining) ||
     projects.reduce((sum, project) => sum + Number(project.metrics?.remaining_balance || 0), 0);
@@ -262,7 +302,7 @@ const renderProjects = (projects, overview) => {
         <p class="project-sub">Contracted: ${formatCurrency(totalContractValue, currencyCode)} • Remaining: ${formatCurrency(totalRemainingAmount, currencyCode)}</p>
       </td>
       <td colspan="3">
-        <p class="project-sub">Revenues are counted from paid amounts only.</p>
+        <p class="project-sub">Revenue includes project payments + recognized change-request deposits/settlements.</p>
       </td>
     </tr>
   `;
@@ -275,7 +315,7 @@ const renderChangeRequests = (changeRequests) => {
   if (!changeRequests.length) {
     changeRequestsTableBody.innerHTML = `
       <tr>
-        <td colspan="6"><p class="empty-state">No change requests yet.</p></td>
+        <td colspan="7"><p class="empty-state">No change requests yet.</p></td>
       </tr>
     `;
     return;
@@ -290,6 +330,18 @@ const renderChangeRequests = (changeRequests) => {
       const clientName = escapeHtml(changeRequest.client_name || "");
       const description = changeRequest.description ? `<p class="project-sub">${escapeHtml(changeRequest.description)}</p>` : "";
       const currencyCode = changeRequest.currency || "USD";
+      const metrics = changeRequest.metrics || computeFallbackChangeRequestMetrics(changeRequest);
+      const depositAmount = Number(changeRequest.deposit_amount || 0);
+      const remainingAmount = Number(metrics.remaining_amount || 0);
+      const recognizedRevenue = Number(metrics.recognized_revenue || 0);
+      const startDate = changeRequest.start_date || "-";
+      const deadline = changeRequest.deadline || "-";
+      const timelineClass = `status-${metrics.timeline_state || "on_track"}`;
+      const timelineLabel = String(metrics.timeline_state || "on_track").replace("_", " ");
+      const timelineSecondary =
+        metrics.days_remaining === null || metrics.days_remaining === undefined
+          ? ""
+          : `<p class="project-sub">${metrics.days_remaining} day(s) remaining</p>`;
 
       return `
         <tr>
@@ -301,7 +353,16 @@ const renderChangeRequests = (changeRequests) => {
             <p class="project-main">${requestTitle}</p>
             ${description}
           </td>
-          <td>${formatCurrency(changeRequest.price, currencyCode)}</td>
+          <td>
+            <p class="project-main">${formatCurrency(changeRequest.price, currencyCode)}</p>
+            <p class="project-sub">Deposit: ${formatCurrency(depositAmount, currencyCode)} • Remaining: ${formatCurrency(remainingAmount, currencyCode)}</p>
+            <p class="project-sub">Recognized revenue: ${formatCurrency(recognizedRevenue, currencyCode)}</p>
+          </td>
+          <td>
+            <p class="project-main">${startDate} → ${deadline}</p>
+            ${timelineSecondary}
+            <span class="status-badge ${timelineClass}">${timelineLabel}</span>
+          </td>
           <td>
             <span class="status-badge ${statusClass}">
               ${changeRequestStatusLabelMap[changeRequest.status] || changeRequest.status}
@@ -326,11 +387,19 @@ const renderChangeRequests = (changeRequests) => {
 const buildChangeRequestEmailDraft = (changeRequest) => {
   const statusLabel = changeRequestStatusLabelMap[changeRequest.status] || changeRequest.status;
   const currencyCode = changeRequest.currency || "USD";
+  const metrics = changeRequest.metrics || computeFallbackChangeRequestMetrics(changeRequest);
   const priceText = formatCurrency(changeRequest.price, currencyCode);
+  const depositText = formatCurrency(changeRequest.deposit_amount || 0, currencyCode);
+  const remainingText = formatCurrency(metrics.remaining_amount || 0, currencyCode);
+  const recognizedText = formatCurrency(metrics.recognized_revenue || 0, currencyCode);
   const etaLine =
     changeRequest.estimated_days === null || changeRequest.estimated_days === undefined
       ? ""
       : `Estimated timeline: ${changeRequest.estimated_days} day(s)\n`;
+  const scheduleLine =
+    changeRequest.start_date && changeRequest.deadline
+      ? `Schedule: ${changeRequest.start_date} to ${changeRequest.deadline}\n`
+      : "";
   const descriptionLine = changeRequest.description
     ? `Requested details:\n${changeRequest.description}\n\n`
     : "Requested details: No additional notes were provided.\n\n";
@@ -342,6 +411,10 @@ const buildChangeRequestEmailDraft = (changeRequest) => {
     `Request: ${changeRequest.title}\n` +
     `Status: ${statusLabel}\n` +
     `Price: ${priceText}\n` +
+    `Deposit: ${depositText}\n` +
+    `Remaining settlement: ${remainingText}\n` +
+    `Recognized revenue to date: ${recognizedText}\n` +
+    scheduleLine +
     etaLine +
     `Last updated: ${changeRequest.updated_at ? String(changeRequest.updated_at).slice(0, 10) : "-"}\n\n` +
     descriptionLine +
@@ -355,11 +428,9 @@ const renderOverview = (overview) => {
   const totals = overview.totals;
   const changeSummary = overview.change_requests_summary || {};
   const currencyCode = resolveDashboardCurrency(overview, cachedProjects);
-  const totalRevenue =
-    Number(totals.total_paid) || cachedProjects.reduce((sum, project) => sum + Number(project.paid_amount || 0), 0);
+  const totalRevenue = Number(totals.total_revenue_with_addons || 0) || Number(totals.total_paid || 0);
   const pendingBalance =
-    Number(totals.total_remaining) ||
-    cachedProjects.reduce((sum, project) => sum + Number(project.metrics?.remaining_balance || 0), 0);
+    Number(totals.total_remaining || 0) + Number(changeSummary.pending_settlements || 0);
   totalProjectsEl.textContent = totals.total_projects;
   activeProjectsEl.textContent = totals.active_projects;
   completedProjectsEl.textContent = totals.completed_projects;
@@ -480,6 +551,9 @@ const enterChangeRequestEditMode = (changeRequestId) => {
   changeRequestProjectField.value = String(changeRequest.project_id);
   changeRequestForm.title.value = changeRequest.title || "";
   changeRequestForm.price.value = String(changeRequest.price ?? 0);
+  changeRequestForm.deposit_amount.value = String(changeRequest.deposit_amount ?? 0);
+  changeRequestForm.start_date.value = changeRequest.start_date || "";
+  changeRequestForm.deadline.value = changeRequest.deadline || "";
   changeRequestForm.estimated_days.value = changeRequest.estimated_days ?? "";
   changeRequestForm.status.value = changeRequest.status || "draft";
   changeRequestForm.description.value = changeRequest.description || "";
@@ -597,9 +671,18 @@ if (changeRequestForm) {
       title: changeRequestForm.title.value.trim(),
       description: changeRequestForm.description.value.trim(),
       price: Number(changeRequestForm.price.value),
+      deposit_amount: Number(changeRequestForm.deposit_amount.value || 0),
+      start_date: changeRequestForm.start_date.value || null,
+      deadline: changeRequestForm.deadline.value || null,
       estimated_days: changeRequestForm.estimated_days.value ? Number(changeRequestForm.estimated_days.value) : null,
       status: changeRequestForm.status.value,
     };
+
+    if ((payload.start_date && !payload.deadline) || (payload.deadline && !payload.start_date)) {
+      changeRequestFeedback.textContent = "Please provide both start date and deadline.";
+      changeRequestFeedback.className = "error";
+      return;
+    }
 
     const editingId = changeRequestIdField.value;
     const isEditing = Boolean(editingId);
