@@ -299,7 +299,7 @@ app.post("/api/admin/share-report", requireAdminApi, async (req, res) => {
 
 if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));
-  app.get("*", (req, res, next) => {
+  app.get(/^(?!\/api\/).*/, (req, res, next) => {
     if (req.path.startsWith("/api/")) return next();
     return res.sendFile(path.join(clientDistPath, "index.html"));
   });

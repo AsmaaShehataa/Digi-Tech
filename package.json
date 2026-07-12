@@ -4,7 +4,7 @@
   "description": "A modern, minimalist, and multilingual professional website showcasing software engineering services focused on:",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "dev": "npm --prefix server run dev",
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev",
     "build": "npm --prefix client run build",
@@ -24,8 +24,5 @@
   "homepage": "https://github.com/AsmaaShehataa/Digi-Tech#readme",
   "engines": {
     "node": ">=18"
-  },
-  "devDependencies": {
-    "concurrently": "^10.0.3"
   }
 }
