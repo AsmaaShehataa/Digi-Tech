@@ -1,186 +1,118 @@
-# Digi-Tech — Global Software Engineering Services Website
+# Digi-Tech (Node + React + Express)
 
-A modern, minimalist, and multilingual professional website showcasing software engineering services focused on:
+This repository has been rebuilt on the requested stack:
 
-- Web and mobile application design & development
-- Digital transformation initiatives
-- AI product integration and UX modernization
+- **Frontend:** React + Vite (`/client`)
+- **Backend:** Express + SQLite (`/server`)
+- **Auth:** Session-based admin authentication
+- **Domain model:** Projects, milestones, change requests, inquiries
 
-The site is designed for a seamless user experience, global accessibility, and straightforward deployment to reliable hosting platforms.
+It keeps the previous business logic for:
+
+- project/payment tracking
+- completed project handling (not shown as overdue)
+- change requests with deposit + timeline
+- staged revenue recognition for change requests
+
+---
 
 ## Project Structure
 
-- `index.html` — Semantic page layout and content sections
-- `styles.css` — Responsive, minimalist visual design system
-- `script.js` — Multilingual UI + AI-style recommendation interaction
-- `admin_backend.py` — Flask backend for admin route and APIs (Postgres via `DATABASE_URL`, SQLite fallback)
-- `templates/admin_login.html` — Secure admin login page (email/password)
-- `templates/admin_dashboard.html` — Admin project/payment dashboard
-- `static/admin-auth.css` — Login page styling
-- `static/admin.css` — Dashboard styling
-- `static/admin.js` — Dashboard interactions (including Edit/Delete actions)
-- `deploy/hostinger/*` — Hostinger VPS env, Nginx, and systemd examples
-- `docs/hostinger-deployment.md` — Public/internal split deployment guide
-
-## Included Features
-
-### 1) Modern, user-friendly design
-
-- Clean dark-theme aesthetic with strong readability
-- Responsive layout for desktop, tablet, and mobile
-- Clear content hierarchy and conversion-focused CTAs
-
-### 2) AI-driven experience
-
-- Interactive recommendation assistant that suggests service pathways based on visitor inputs
-- Personalized output model to guide users toward relevant engagement options
-
-### 3) Multilingual support
-
-- Built-in language switching for:
-  - English (`en`)
-  - Spanish (`es`)
-  - French (`fr`)
-  - Arabic (`ar`, RTL supported)
-- Client-side translation dictionary architecture that can be extended easily
-
-### 4) Accessibility foundation
-
-- Semantic landmarks (`header`, `main`, `section`, `footer`)
-- Skip link for keyboard users
-- Focus-visible states and keyboard-friendly controls
-- RTL-aware layout behavior for Arabic
-
-### 5) Reliable hosting readiness
-
-This website is static and can be deployed globally with high reliability on platforms such as:
-
-- **Cloudflare Pages**
-- **Netlify**
-- **Vercel**
-- **AWS S3 + CloudFront**
-
-Recommended production setup:
-
-- Global CDN enabled
-- HTTPS (SSL/TLS) enforced
-- Caching headers configured
-- Monitoring and uptime alerts enabled
-
-## Run Locally
-
-### Public website (static)
-
-```bash
-python3 -m http.server 8080
+```text
+client/                  # React app (public website + admin UI)
+server/                  # Express API + SQLite data layer
+  src/repository.js      # core business logic and metrics
+  src/app.js             # routes + middleware
+  src/index.js           # server bootstrap
+data/                    # SQLite DB file location (runtime)
 ```
 
-Then open:
+---
 
-`http://localhost:8080`
+## Local Development
 
-### Admin dashboard (with project/payment tracking)
-
-Install dependencies:
+Install dependencies (already separated by app):
 
 ```bash
-python3 -m pip install -r requirements.txt
+npm install
+npm --prefix client install
+npm --prefix server install
 ```
 
-Run backend:
+Run frontend + backend together:
 
 ```bash
-python3 admin_backend.py
+npm run dev
 ```
 
-Then open:
+- React dev server: `http://localhost:5173`
+- Express API: `http://localhost:5000`
 
-- `http://localhost:5000/admin/login`
-- `http://localhost:5000/admin`
+---
 
-> Note: admin routes are available only when `APP_DEPLOY_TARGET=admin_internal`.
-> For local admin testing:
->
-> ```bash
-> APP_DEPLOY_TARGET=admin_internal APP_PORT=5000 python3 admin_backend.py
-> ```
+## Production Build
 
-Default local admin credentials:
+Build React:
 
-- Email: `admin@digi-tech.local`
-- Password: `ChangeMe123!`
+```bash
+npm run build
+```
 
-Set production credentials via env vars:
+Run Express (serves `/api/*` and built React app):
 
-- `ADMIN_EMAIL`
-- `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_HASH`)
-- `FLASK_SECRET_KEY`
-- `DATABASE_URL` (recommended in production, e.g. Render Postgres)
+```bash
+npm start
+```
 
-### Deployment modes (important)
+---
 
-`admin_backend.py` supports two deployment targets:
+## Environment Variables (Server)
 
-- `APP_DEPLOY_TARGET=public`
-  - Admin module disabled (`/admin` and `/api/admin/*` return 404)
-  - Exposes public website + public API routes only
-- `APP_DEPLOY_TARGET=admin_internal`
-  - Admin module enabled for internal staff use
-  - Supports login + admin dashboard + admin APIs
+Use `server/.env.example` as the template.
 
-Public API routes available in `public` mode:
+Important:
+
+- `APP_DEPLOY_TARGET=admin_internal` enables admin APIs
+- `ADMIN_EMAIL` and `ADMIN_PASSWORD` define initial admin login
+- `SESSION_SECRET` should be a long random secret in production
+- `PUBLIC_API_ALLOWED_ORIGINS` controls public API CORS
+- `ADMIN_ALLOWED_IPS` can enforce internal-only admin access
+
+---
+
+## API Overview
+
+Public:
 
 - `GET /api/public/health`
 - `POST /api/public/inquiries`
 
-## Hostinger VPS deployment (public + internal split)
+Admin:
 
-Use two app processes and two subdomains:
+- `POST /api/admin/login`
+- `POST /api/admin/logout`
+- `GET/POST/PUT/DELETE /api/admin/projects...`
+- `GET/POST/PUT/DELETE /api/admin/change-requests...`
+- `GET /api/admin/overview`
+- `GET /api/admin/export.csv`
+- `GET /api/admin/export.json`
+- `POST /api/admin/share-report`
 
-- `yourdomain.com` → public app (`APP_DEPLOY_TARGET=public`, port `5000`)
-- `admin.yourdomain.com` → internal admin app (`APP_DEPLOY_TARGET=admin_internal`, port `5001`)
+---
 
-Reference files:
+## Hostinger Notes (Node Deployment)
 
-- `deploy/hostinger/public.env.example`
-- `deploy/hostinger/admin.env.example`
-- `deploy/hostinger/nginx-public.conf`
-- `deploy/hostinger/nginx-admin-internal.conf`
-- `deploy/hostinger/systemd/digi-tech-public.service`
-- `deploy/hostinger/systemd/digi-tech-admin.service`
+This stack is Hostinger-friendly for Node-capable plans/VPS:
 
-Internal admin protection should use both:
+1. Upload repository
+2. Install dependencies
+3. Set server env vars
+4. Run `npm run build`
+5. Start with `npm start` (or process manager like PM2)
+6. Reverse proxy with Nginx/Hostinger panel to Express port
 
-1. Nginx IP allowlist (`allow`/`deny`) on `admin.yourdomain.com`
-2. App-level session auth (email/password)
+If you want, a follow-up can add:
 
-## Split deployment with standalone backend repo
-
-If your frontend is hosted on shared hosting (static-only) and backend is hosted elsewhere, split this codebase into:
-
-- **Frontend repo** (recommended name: `digi-tech-frontend`)
-  - Keep: `index.html`, `styles.css`, `script.js`, `logo.svg`
-- **Backend repo** (recommended name: `digi-tech-backend`)
-  - Keep: `admin_backend.py`, `templates/admin_*.html`, `static/admin*`, `requirements.txt`, `deploy/hostinger/*`
-
-Backend cross-origin access for public APIs is supported via environment variable:
-
-- `PUBLIC_API_ALLOWED_ORIGINS`
-  - Use `*` for open access (default)
-  - Or a comma-separated allowlist, e.g.
-    - `PUBLIC_API_ALLOWED_ORIGINS=https://www.digi-tech.com,https://digi-tech.com`
-- `PUBLIC_API_ALLOW_CREDENTIALS=1` (optional; use only if needed)
-
-## Customization Notes
-
-- Replace `Digi-Tech` branding and copy in `index.html`
-- Update contact email in the contact CTA (`mailto:` link)
-- Add more languages by extending the `translations` object in `script.js`
-- Integrate analytics (e.g., Plausible, GA4) and form backend if needed
-
-## Next Production Enhancements (Optional)
-
-- Connect contact form to CRM/email automation
-- Add case studies and testimonials
-- Add CMS-backed localization workflow
-- Add structured data (JSON-LD) for SEO
+- PM2 ecosystem config
+- Dockerfile
+- production Nginx config specifically for Hostinger Node apps
