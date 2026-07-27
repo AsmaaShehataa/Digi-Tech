@@ -40,6 +40,43 @@
 /* Public site */
 .public-site {
   gap: 1.2rem;
+  position: relative;
+}
+
+.bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(12px);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.orb-a {
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(124, 181, 255, 0.9), rgba(124, 181, 255, 0));
+  top: 120px;
+  left: -120px;
+  animation: orbFloat 10s ease-in-out infinite;
+}
+
+.orb-b {
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(83, 217, 188, 0.85), rgba(83, 217, 188, 0));
+  top: 360px;
+  right: -120px;
+  animation: orbFloat 12s ease-in-out infinite reverse;
+}
+
+@keyframes orbFloat {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-18px);
+  }
 }
 
 .marketing-nav {
@@ -60,6 +97,20 @@
 .brand-mark {
   font-weight: 700;
   letter-spacing: 0.03em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.brand-logo {
+  width: 1.8rem;
+  height: 1.8rem;
+  display: inline-flex;
+}
+
+.brand-logo svg {
+  width: 100%;
+  height: 100%;
 }
 
 .marketing-nav nav {
@@ -139,6 +190,14 @@ h1 {
   border-radius: 0.9rem;
   background: rgba(12, 20, 40, 0.66);
   padding: 1rem;
+}
+
+.hero-highlight strong {
+  transition: transform 0.3s ease;
+}
+
+.hero-highlight strong:hover {
+  transform: scale(1.04);
 }
 
 .hero-highlight h3 {
@@ -243,6 +302,71 @@ h1 {
   margin-top: 0.75rem;
   color: #b8c7e6;
   max-width: 70ch;
+}
+
+.results-graph {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.results-graph article {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.graph-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.45rem;
+  color: #cfe0ff;
+  font-size: 0.9rem;
+}
+
+.graph-label strong {
+  font-size: 0.95rem;
+}
+
+.bar-track {
+  height: 0.62rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  width: 0;
+  animation: fillBar 1.4s ease forwards;
+}
+
+.fill-conversion {
+  --target: 68%;
+  background: linear-gradient(90deg, #7db5ff, #5a89ff);
+}
+
+.fill-speed {
+  --target: 52%;
+  background: linear-gradient(90deg, #53d9bc, #3bc9a9);
+}
+
+.fill-mobile {
+  --target: 74%;
+  background: linear-gradient(90deg, #9c8cff, #7a63ff);
+}
+
+@keyframes fillBar {
+  from {
+    width: 0;
+  }
+  to {
+    width: var(--target);
+  }
 }
 
 .result-tags {

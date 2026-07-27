@@ -26,6 +26,29 @@ const api = async (url, options = {}) => {
 const PublicWebsite = () => {
   const [form, setForm] = useState({ full_name: "", email: "", company: "", message: "" });
   const [status, setStatus] = useState("");
+  const [stats, setStats] = useState({ projects: 0, satisfaction: 0, growth: 0 });
+
+  useEffect(() => {
+    const targets = { projects: 48, satisfaction: 98, growth: 210 };
+    const durationMs = 1500;
+    const start = performance.now();
+    let frameId = null;
+
+    const tick = (now) => {
+      const progress = Math.min((now - start) / durationMs, 1);
+      setStats({
+        projects: Math.round(targets.projects * progress),
+        satisfaction: Math.round(targets.satisfaction * progress),
+        growth: Math.round(targets.growth * progress),
+      });
+      if (progress < 1) frameId = window.requestAnimationFrame(tick);
+    };
+
+    frameId = window.requestAnimationFrame(tick);
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
+  }, []);
 
   const submitInquiry = async (event) => {
     event.preventDefault();
@@ -41,9 +64,23 @@ const PublicWebsite = () => {
 
   return (
     <main className="site public-site">
+      <div className="bg-orb orb-a" aria-hidden="true" />
+      <div className="bg-orb orb-b" aria-hidden="true" />
       <header className="marketing-nav">
         <a className="brand-mark" href="/">
-          Digi-Tech
+          <span className="brand-logo" aria-hidden="true">
+            <svg viewBox="0 0 60 60" focusable="false">
+              <defs>
+                <linearGradient id="logoGradient" x1="0%" x2="100%" y1="0%" y2="100%">
+                  <stop offset="0%" stopColor="#7db5ff" />
+                  <stop offset="100%" stopColor="#53d9bc" />
+                </linearGradient>
+              </defs>
+              <rect x="4" y="4" width="52" height="52" rx="16" fill="url(#logoGradient)" />
+              <path d="M20 18h20v6H27v8h11v6H27v4h13v6H20z" fill="#071228" />
+            </svg>
+          </span>
+          <span>Digi-Tech</span>
         </a>
         <nav>
           <a href="#services">Services</a>
@@ -83,16 +120,16 @@ const PublicWebsite = () => {
           </p>
           <div className="mini-stats">
             <div>
-              <strong>45+</strong>
+              <strong>{stats.projects}+</strong>
               <span>Projects delivered</span>
             </div>
             <div>
-              <strong>98%</strong>
+              <strong>{stats.satisfaction}%</strong>
               <span>Client satisfaction</span>
             </div>
             <div>
-              <strong>12</strong>
-              <span>Countries served</span>
+              <strong>{stats.growth}%</strong>
+              <span>Avg. lead growth impact</span>
             </div>
           </div>
         </aside>
@@ -157,6 +194,35 @@ const PublicWebsite = () => {
           Every engagement is built around growth metrics: stronger first impressions, clearer messaging, and
           smoother user journeys that turn visitors into qualified leads.
         </p>
+        <div className="results-graph" aria-label="Sample project impact graph">
+          <article>
+            <div className="graph-label">
+              <span>Conversion lift</span>
+              <strong>+68%</strong>
+            </div>
+            <div className="bar-track">
+              <span className="bar-fill fill-conversion" />
+            </div>
+          </article>
+          <article>
+            <div className="graph-label">
+              <span>Page speed improvement</span>
+              <strong>+52%</strong>
+            </div>
+            <div className="bar-track">
+              <span className="bar-fill fill-speed" />
+            </div>
+          </article>
+          <article>
+            <div className="graph-label">
+              <span>Mobile engagement</span>
+              <strong>+74%</strong>
+            </div>
+            <div className="bar-track">
+              <span className="bar-fill fill-mobile" />
+            </div>
+          </article>
+        </div>
         <div className="result-tags">
           <span>Conversion-oriented landing structure</span>
           <span>Premium visual branding</span>
