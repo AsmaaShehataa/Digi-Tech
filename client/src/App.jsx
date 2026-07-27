@@ -136,21 +136,22 @@ const PublicWebsite = () => {
   };
 
   return (
-    <main className="site public-site">
-      <div className="bg-orb orb-a" aria-hidden="true" />
-      <div className="bg-orb orb-b" aria-hidden="true" />
+    <main className="site public-site premium-v2">
+      <div className="bg-glow glow-one" aria-hidden="true" />
+      <div className="bg-glow glow-two" aria-hidden="true" />
+
       <header className="marketing-nav">
         <a className="brand-mark" href="/">
           <span className="brand-logo" aria-hidden="true">
-            <svg viewBox="0 0 60 60" focusable="false">
+            <svg viewBox="0 0 48 48" focusable="false">
               <defs>
                 <linearGradient id="logoGradient" x1="0%" x2="100%" y1="0%" y2="100%">
-                  <stop offset="0%" stopColor="#7db5ff" />
-                  <stop offset="100%" stopColor="#53d9bc" />
+                  <stop offset="0%" stopColor="#3b82f6" />
+                  <stop offset="100%" stopColor="#a855f7" />
                 </linearGradient>
               </defs>
-              <rect x="4" y="4" width="52" height="52" rx="16" fill="url(#logoGradient)" />
-              <path d="M20 18h20v6H27v8h11v6H27v4h13v6H20z" fill="#071228" />
+              <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#logoGradient)" />
+              <path d="M30 10v12h8l-14 16v-12h-8z" fill="#ffffff" opacity="0.93" />
             </svg>
           </span>
           <span>Digi-Tech</span>
@@ -161,9 +162,12 @@ const PublicWebsite = () => {
           <a href="#results">Results</a>
           <a href="#contact">Contact</a>
         </nav>
+        <a className="button secondary nav-cta" href="#contact">
+          Talk to an Expert
+        </a>
       </header>
 
-      <section className="hero premium">
+      <section className="hero premium" id="hero">
         <div>
           <p className="eyebrow">Global Product Engineering Studio</p>
           <h1>
@@ -217,11 +221,17 @@ const PublicWebsite = () => {
         </aside>
       </section>
 
-      <section className="cards" id="services">
-        {services.map((service) => {
+      <section className="section-header" id="services">
+        <h2>Our Core Capabilities</h2>
+        <p>Tailored digital engineering to accelerate your growth.</p>
+      </section>
+
+      <section className="cards bento-cards">
+        {services.map((service, index) => {
           const Icon = service.icon;
+          const isWide = service.featured || index === services.length - 1;
           return (
-            <article key={service.title} className={service.featured ? "featured-service" : ""}>
+            <article key={service.title} className={`${service.featured ? "featured-service" : ""} ${isWide ? "bento-wide" : ""}`}>
               <div className="service-icon-row">
                 <span className="service-icon">
                   <Icon size={18} />
@@ -289,12 +299,6 @@ const PublicWebsite = () => {
             </div>
           </article>
         </div>
-        <div className="result-tags">
-          <span>Conversion-oriented landing structure</span>
-          <span>Premium visual branding</span>
-          <span>Speed + SEO foundations</span>
-          <span>Mobile-first interaction quality</span>
-        </div>
       </section>
 
       <section className="panel contact-panel" id="contact">
@@ -341,6 +345,25 @@ const PublicWebsite = () => {
           Internal access only: <a href="/admin">Admin dashboard</a>
         </p>
       </section>
+
+      <footer className="marketing-footer">
+        <a className="brand-mark" href="/">
+          <span className="brand-logo" aria-hidden="true">
+            <svg viewBox="0 0 48 48" focusable="false">
+              <defs>
+                <linearGradient id="logoGradientFooter" x1="0%" x2="100%" y1="0%" y2="100%">
+                  <stop offset="0%" stopColor="#3b82f6" />
+                  <stop offset="100%" stopColor="#a855f7" />
+                </linearGradient>
+              </defs>
+              <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#logoGradientFooter)" />
+              <path d="M30 10v12h8l-14 16v-12h-8z" fill="#ffffff" opacity="0.93" />
+            </svg>
+          </span>
+          <span>Digi-Tech</span>
+        </a>
+        <p>© 2026 Digi-Tech Studio. All rights reserved.</p>
+      </footer>
     </main>
   );
 };
