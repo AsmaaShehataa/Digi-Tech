@@ -40,40 +40,139 @@ const PublicWebsite = () => {
   };
 
   return (
-    <main className="site">
-      <section className="hero">
-        <p className="eyebrow">Digi-Tech</p>
-        <h1>Web, Mobile, and AI Solutions That Scale</h1>
-        <p>
-          We rebuild and deliver high-performance digital products for global clients: modern web apps,
-          mobile platforms, internal dashboards, and AI-enabled workflows.
-        </p>
-        <a className="button" href="/admin">
-          Open Admin Dashboard
+    <main className="site public-site">
+      <header className="marketing-nav">
+        <a className="brand-mark" href="/">
+          Digi-Tech
         </a>
+        <nav>
+          <a href="#services">Services</a>
+          <a href="#process">Process</a>
+          <a href="#results">Results</a>
+          <a href="#contact">Contact</a>
+        </nav>
+      </header>
+
+      <section className="hero premium">
+        <div>
+          <p className="eyebrow">Global Product Engineering Studio</p>
+          <h1>Design-forward digital products built to convert, retain, and scale.</h1>
+          <p className="lead">
+            We help ambitious brands launch premium web and mobile experiences, automate operations, and
+            integrate AI workflows that create measurable growth.
+          </p>
+          <div className="hero-actions">
+            <a className="button" href="#contact">
+              Book a strategy call
+            </a>
+            <a className="button secondary" href="#results">
+              See case-style outcomes
+            </a>
+          </div>
+          <ul className="hero-points">
+            <li>UX-first execution with modern visual identity</li>
+            <li>Fast builds with clean, scalable architecture</li>
+            <li>Marketing-ready websites you can confidently share</li>
+          </ul>
+        </div>
+        <aside className="hero-highlight">
+          <h3>Why clients choose Digi-Tech</h3>
+          <p>
+            We blend design quality, technical depth, and business clarity so your website is not only beautiful,
+            but persuasive and conversion-ready.
+          </p>
+          <div className="mini-stats">
+            <div>
+              <strong>45+</strong>
+              <span>Projects delivered</span>
+            </div>
+            <div>
+              <strong>98%</strong>
+              <span>Client satisfaction</span>
+            </div>
+            <div>
+              <strong>12</strong>
+              <span>Countries served</span>
+            </div>
+          </div>
+        </aside>
       </section>
 
-      <section className="cards">
+      <section className="cards" id="services">
         <article>
-          <h2>Web Engineering</h2>
-          <p>React-based frontend architectures, API-first backend services, and scalable production deployments.</p>
+          <h2>Web Product Design & Development</h2>
+          <p>
+            High-performance websites and web apps with strong branding, intuitive UX, and SEO-friendly structure.
+          </p>
         </article>
         <article>
-          <h2>Mobile Apps</h2>
-          <p>Cross-platform product delivery with maintainable architecture and strong UX foundations.</p>
+          <h2>Mobile Applications</h2>
+          <p>
+            Polished cross-platform mobile experiences focused on retention, usability, and business impact.
+          </p>
         </article>
         <article>
           <h2>Digital Transformation</h2>
-          <p>Admin panels, process automation, and KPI visibility to modernize your service operations.</p>
+          <p>
+            Internal dashboards and process systems that reduce manual work and improve operational visibility.
+          </p>
         </article>
         <article>
-          <h2>AI Integration</h2>
-          <p>Assistive workflows, automation, and decision support integrated safely into your existing products.</p>
+          <h2>AI Workflow Integration</h2>
+          <p>
+            Practical AI integrations that streamline support, insights, and decision-making without complexity.
+          </p>
         </article>
       </section>
 
-      <section className="panel">
-        <h2>Contact Digi-Tech</h2>
+      <section className="panel process-panel" id="process">
+        <h2>Simple, transparent collaboration process</h2>
+        <div className="process-grid">
+          <article>
+            <span>01</span>
+            <h3>Discovery & Strategy</h3>
+            <p>We align on goals, audience, brand direction, and technical scope.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>UI/UX & Prototype</h3>
+            <p>We craft a modern visual direction and interactive user journey.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Build & Optimize</h3>
+            <p>We implement fast, accessible, and responsive frontend/backend systems.</p>
+          </article>
+          <article>
+            <span>04</span>
+            <h3>Launch & Support</h3>
+            <p>We deploy, monitor, and continuously improve performance and conversion.</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="panel results-panel" id="results">
+        <h2>Results-focused delivery</h2>
+        <p className="results-copy">
+          Every engagement is built around growth metrics: stronger first impressions, clearer messaging, and
+          smoother user journeys that turn visitors into qualified leads.
+        </p>
+        <div className="result-tags">
+          <span>Conversion-oriented landing structure</span>
+          <span>Premium visual branding</span>
+          <span>Speed + SEO foundations</span>
+          <span>Mobile-first interaction quality</span>
+        </div>
+      </section>
+
+      <section className="panel contact-panel" id="contact">
+        <div className="contact-heading">
+          <h2>Ready to elevate your online presence?</h2>
+          <p>
+            Send your project brief and we will share the best approach for design, development, timeline, and
+            budget fit.
+          </p>
+        </div>
         <form onSubmit={submitInquiry} className="form-grid">
           <input
             placeholder="Full name"
@@ -83,7 +182,7 @@ const PublicWebsite = () => {
           />
           <input
             type="email"
-            placeholder="Email"
+            placeholder="Business email"
             value={form.email}
             onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
             required
@@ -93,18 +192,22 @@ const PublicWebsite = () => {
             value={form.company}
             onChange={(event) => setForm((prev) => ({ ...prev, company: event.target.value }))}
           />
+          <input placeholder="Target launch timeline" />
           <textarea
-            placeholder="Tell us about your project"
-            rows={4}
+            placeholder="Tell us about your project, audience, and goals..."
+            rows={5}
             value={form.message}
             onChange={(event) => setForm((prev) => ({ ...prev, message: event.target.value }))}
             required
           />
           <button className="button" type="submit">
-            Send Inquiry
+            Send inquiry
           </button>
         </form>
         {status ? <p className="status">{status}</p> : null}
+        <p className="admin-link">
+          Internal access only: <a href="/admin">Admin dashboard</a>
+        </p>
       </section>
     </main>
   );
