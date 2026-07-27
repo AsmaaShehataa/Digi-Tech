@@ -25,6 +25,9 @@
   cursor: pointer;
   text-decoration: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .button:hover {
@@ -148,6 +151,13 @@ h1 {
   line-height: 1.15;
 }
 
+.hero-emphasis {
+  background: linear-gradient(100deg, #8bc0ff 0%, #c29bff 48%, #68dec0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 .lead {
   color: #b8c7e6;
   max-width: 60ch;
@@ -171,18 +181,23 @@ h1 {
 .hero-points li {
   position: relative;
   color: #b8c7e6;
-  padding-left: 1.1rem;
+  padding-left: 1.8rem;
+  display: flex;
+  align-items: center;
 }
 
-.hero-points li::before {
-  content: "";
-  width: 0.42rem;
-  height: 0.42rem;
+.point-icon {
+  width: 1.1rem;
+  height: 1.1rem;
   border-radius: 999px;
-  background: #67d5bb;
+  background: rgba(83, 217, 188, 0.14);
+  border: 1px solid rgba(83, 217, 188, 0.45);
   position: absolute;
   left: 0;
-  top: 0.56rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #7de7cf;
 }
 
 .hero-highlight {
@@ -243,6 +258,41 @@ h1 {
   padding: 1rem;
 }
 
+.featured-service {
+  border-color: rgba(123, 179, 255, 0.4);
+  box-shadow: 0 18px 36px rgba(77, 134, 246, 0.15);
+}
+
+.service-icon-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.service-icon {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+  color: #8fbaff;
+  border: 1px solid rgba(143, 186, 255, 0.35);
+  background: rgba(143, 186, 255, 0.1);
+}
+
+.service-badge {
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  color: #9ec7ff;
+  border: 1px solid rgba(143, 186, 255, 0.35);
+  background: rgba(143, 186, 255, 0.1);
+}
+
 .cards h2 {
   margin: 0;
   font-size: 1.08rem;
@@ -280,11 +330,21 @@ h1 {
   background: rgba(255, 255, 255, 0.02);
 }
 
+.step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .process-grid span {
   display: inline-block;
   font-size: 0.78rem;
   color: #8fbaff;
   margin-bottom: 0.45rem;
+}
+
+.step-head svg {
+  color: #8ea5cf;
 }
 
 .process-grid h3 {

@@ -1,4 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowRight,
+  Bot,
+  Check,
+  Code2,
+  Compass,
+  Cpu,
+  Layout,
+  PenTool,
+  Rocket,
+  Smartphone,
+} from "lucide-react";
 import "./App.css";
 
 const currencyFormatter = (currency) =>
@@ -26,10 +38,71 @@ const api = async (url, options = {}) => {
 const PublicWebsite = () => {
   const [form, setForm] = useState({ full_name: "", email: "", company: "", message: "" });
   const [status, setStatus] = useState("");
-  const [stats, setStats] = useState({ projects: 0, satisfaction: 0, growth: 0 });
+  const [stats, setStats] = useState({ projects: 0, satisfaction: 0, countries: 0 });
+
+  const bulletPoints = [
+    "UX-first execution with modern visual identity",
+    "Fast builds with clean, scalable architecture",
+    "Marketing-ready websites you can confidently share",
+  ];
+
+  const services = [
+    {
+      icon: Layout,
+      title: "Web Product Design & Development",
+      description:
+        "High-performance websites and web apps with strong branding, intuitive UX, and SEO-friendly structure.",
+      featured: true,
+    },
+    {
+      icon: Smartphone,
+      title: "Mobile Applications",
+      description:
+        "Polished cross-platform mobile experiences focused on retention, usability, and business impact.",
+    },
+    {
+      icon: Cpu,
+      title: "Digital Transformation",
+      description:
+        "Internal dashboards and process systems that reduce manual work and improve operational visibility.",
+    },
+    {
+      icon: Bot,
+      title: "AI Workflow Integration",
+      description:
+        "Practical AI integrations that streamline support, insights, and decision-making without complexity.",
+    },
+  ];
+
+  const processSteps = [
+    {
+      num: "01",
+      title: "Discovery & Strategy",
+      description: "We align on goals, audience, brand direction, and technical scope.",
+      icon: Compass,
+    },
+    {
+      num: "02",
+      title: "UI/UX & Prototype",
+      description: "We craft a modern visual direction and interactive user journey.",
+      icon: PenTool,
+    },
+    {
+      num: "03",
+      title: "Build & Optimize",
+      description: "We implement fast, accessible, and responsive frontend/backend systems.",
+      icon: Code2,
+    },
+    {
+      num: "04",
+      title: "Launch & Support",
+      description: "We deploy, monitor, and continuously improve performance and conversion.",
+      icon: Rocket,
+    },
+  ];
 
   useEffect(() => {
-    const targets = { projects: 48, satisfaction: 98, growth: 210 };
+    const targets = { projects: 45, satisfaction: 98, countries: 12 };
     const durationMs = 1500;
     const start = performance.now();
     let frameId = null;
@@ -39,7 +112,7 @@ const PublicWebsite = () => {
       setStats({
         projects: Math.round(targets.projects * progress),
         satisfaction: Math.round(targets.satisfaction * progress),
-        growth: Math.round(targets.growth * progress),
+        countries: Math.round(targets.countries * progress),
       });
       if (progress < 1) frameId = window.requestAnimationFrame(tick);
     };
@@ -93,7 +166,10 @@ const PublicWebsite = () => {
       <section className="hero premium">
         <div>
           <p className="eyebrow">Global Product Engineering Studio</p>
-          <h1>Design-forward digital products built to convert, retain, and scale.</h1>
+          <h1>
+            Design-forward digital products built to{" "}
+            <span className="hero-emphasis">convert, retain, and scale.</span>
+          </h1>
           <p className="lead">
             We help ambitious brands launch premium web and mobile experiences, automate operations, and
             integrate AI workflows that create measurable growth.
@@ -101,15 +177,21 @@ const PublicWebsite = () => {
           <div className="hero-actions">
             <a className="button" href="#contact">
               Book a strategy call
+              <ArrowRight size={16} />
             </a>
             <a className="button secondary" href="#results">
               See case-style outcomes
             </a>
           </div>
           <ul className="hero-points">
-            <li>UX-first execution with modern visual identity</li>
-            <li>Fast builds with clean, scalable architecture</li>
-            <li>Marketing-ready websites you can confidently share</li>
+            {bulletPoints.map((text) => (
+              <li key={text}>
+                <span className="point-icon" aria-hidden="true">
+                  <Check size={13} />
+                </span>
+                {text}
+              </li>
+            ))}
           </ul>
         </div>
         <aside className="hero-highlight">
@@ -128,63 +210,47 @@ const PublicWebsite = () => {
               <span>Client satisfaction</span>
             </div>
             <div>
-              <strong>{stats.growth}%</strong>
-              <span>Avg. lead growth impact</span>
+              <strong>{stats.countries}</strong>
+              <span>Countries served</span>
             </div>
           </div>
         </aside>
       </section>
 
       <section className="cards" id="services">
-        <article>
-          <h2>Web Product Design & Development</h2>
-          <p>
-            High-performance websites and web apps with strong branding, intuitive UX, and SEO-friendly structure.
-          </p>
-        </article>
-        <article>
-          <h2>Mobile Applications</h2>
-          <p>
-            Polished cross-platform mobile experiences focused on retention, usability, and business impact.
-          </p>
-        </article>
-        <article>
-          <h2>Digital Transformation</h2>
-          <p>
-            Internal dashboards and process systems that reduce manual work and improve operational visibility.
-          </p>
-        </article>
-        <article>
-          <h2>AI Workflow Integration</h2>
-          <p>
-            Practical AI integrations that streamline support, insights, and decision-making without complexity.
-          </p>
-        </article>
+        {services.map((service) => {
+          const Icon = service.icon;
+          return (
+            <article key={service.title} className={service.featured ? "featured-service" : ""}>
+              <div className="service-icon-row">
+                <span className="service-icon">
+                  <Icon size={18} />
+                </span>
+                {service.featured ? <span className="service-badge">Featured</span> : null}
+              </div>
+              <h2>{service.title}</h2>
+              <p>{service.description}</p>
+            </article>
+          );
+        })}
       </section>
 
       <section className="panel process-panel" id="process">
         <h2>Simple, transparent collaboration process</h2>
         <div className="process-grid">
-          <article>
-            <span>01</span>
-            <h3>Discovery & Strategy</h3>
-            <p>We align on goals, audience, brand direction, and technical scope.</p>
-          </article>
-          <article>
-            <span>02</span>
-            <h3>UI/UX & Prototype</h3>
-            <p>We craft a modern visual direction and interactive user journey.</p>
-          </article>
-          <article>
-            <span>03</span>
-            <h3>Build & Optimize</h3>
-            <p>We implement fast, accessible, and responsive frontend/backend systems.</p>
-          </article>
-          <article>
-            <span>04</span>
-            <h3>Launch & Support</h3>
-            <p>We deploy, monitor, and continuously improve performance and conversion.</p>
-          </article>
+          {processSteps.map((step) => {
+            const Icon = step.icon;
+            return (
+              <article key={step.num}>
+                <div className="step-head">
+                  <span>{step.num}</span>
+                  <Icon size={16} />
+                </div>
+                <h3>{step.title}</h3>
+                <p>{step.description}</p>
+              </article>
+            );
+          })}
         </div>
       </section>
 
