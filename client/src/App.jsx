@@ -53,12 +53,14 @@ const PublicWebsite = () => {
       description:
         "High-performance websites and web apps with strong branding, intuitive UX, and SEO-friendly structure.",
       featured: true,
+      visual: "dashboard",
     },
     {
       icon: Smartphone,
       title: "Mobile Applications",
       description:
         "Polished cross-platform mobile experiences focused on retention, usability, and business impact.",
+      visual: "mobile",
     },
     {
       icon: Cpu,
@@ -139,6 +141,7 @@ const PublicWebsite = () => {
     <main className="site public-site premium-v2">
       <div className="bg-glow glow-one" aria-hidden="true" />
       <div className="bg-glow glow-two" aria-hidden="true" />
+      <div className="floating-star" aria-hidden="true">✦</div>
 
       <header className="marketing-nav">
         <a className="brand-mark" href="/">
@@ -221,10 +224,7 @@ const PublicWebsite = () => {
         </aside>
       </section>
 
-      <section className="section-header" id="services">
-        <h2>Our Core Capabilities</h2>
-        <p>Tailored digital engineering to accelerate your growth.</p>
-      </section>
+      <h2 className="section-label" id="services">Services</h2>
 
       <section className="cards bento-cards">
         {services.map((service, index) => {
@@ -240,13 +240,26 @@ const PublicWebsite = () => {
               </div>
               <h2>{service.title}</h2>
               <p>{service.description}</p>
+              {service.visual === "dashboard" ? (
+                <div className="service-visual dashboard-visual" aria-hidden="true">
+                  <span className="screen-card" />
+                  <span className="screen-chip" />
+                  <span className="screen-card secondary" />
+                </div>
+              ) : null}
+              {service.visual === "mobile" ? (
+                <div className="service-visual mobile-visual" aria-hidden="true">
+                  <span className="phone one" />
+                  <span className="phone two" />
+                </div>
+              ) : null}
             </article>
           );
         })}
       </section>
 
       <section className="panel process-panel" id="process">
-        <h2>Simple, transparent collaboration process</h2>
+        <h2>Collaboration Process</h2>
         <div className="process-grid">
           {processSteps.map((step) => {
             const Icon = step.icon;
