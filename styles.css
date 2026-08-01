@@ -12,7 +12,7 @@
   --shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
   --radius: 1rem;
   --radius-lg: 1.4rem;
-  --container: 1120px;
+  --container: 1360px;
 }
 
 
@@ -59,7 +59,7 @@ p {
 }
 
 .container {
-  width: min(100% - 2.5rem, var(--container));
+  width: min(100% - 1.6rem, var(--container));
   margin-inline: auto;
 }
 
@@ -157,8 +157,8 @@ h3 {
 
 .hero-grid {
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: 2rem;
+  grid-template-columns: 1.12fr 0.88fr;
+  gap: 2.4rem;
   align-items: center;
 }
 
@@ -514,8 +514,8 @@ select {
 
 .cards-grid {
   display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .card {
@@ -613,6 +613,10 @@ select {
 }
 
 @media (max-width: 1024px) {
+  .container {
+    width: min(100% - 1.25rem, var(--container));
+  }
+
   .hero-grid,
   .service-grid {
     grid-template-columns: 1fr;
@@ -622,13 +626,20 @@ select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .stats-grid,
-  .cards-grid {
+  .stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 780px) {
+  .container {
+    width: min(100% - 1rem, var(--container));
+  }
+
   .nav-wrap {
     flex-wrap: wrap;
     justify-content: center;
