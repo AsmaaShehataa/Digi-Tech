@@ -46,7 +46,7 @@ npm run dev
 ```
 
 - React dev server: `http://localhost:5173`
-- Express API: `http://localhost:5000`
+- Express API: `http://localhost:5001`
 
 ---
 
