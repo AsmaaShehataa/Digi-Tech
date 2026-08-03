@@ -299,7 +299,25 @@ class DashboardRepository {
         FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
       )
     `);
+    await this.ensureProjectsSchema();
     await this.ensureDefaultAdmin();
+  }
+
+  async ensureProjectsSchema() {
+    const columns = await this.all("PRAGMA table_info(projects)");
+    const names = new Set(columns.map((column) => column.name));
+    const migrations = [
+      ["currency", "ALTER TABLE projects ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'"],
+      ["milestones_json", "ALTER TABLE projects ADD COLUMN milestones_json TEXT NOT NULL DEFAULT '[]'"],
+      ["notes", "ALTER TABLE projects ADD COLUMN notes TEXT"],
+      ["created_at", "ALTER TABLE projects ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"],
+      ["updated_at", "ALTER TABLE projects ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"],
+    ];
+    for (const [name, sql] of migrations) {
+      if (!names.has(name)) {
+        await this.run(sql);
+      }
+    }
   }
 
   async ensureDefaultAdmin() {

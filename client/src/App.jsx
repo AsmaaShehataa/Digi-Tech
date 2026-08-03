@@ -8,6 +8,8 @@ import {
   Cpu,
   ExternalLink,
   Layout,
+  Lock,
+  LogOut,
   PenTool,
   Plane,
   Receipt,
@@ -1053,6 +1055,7 @@ const emptyChangeRequest = {
 };
 
 const AdminDashboard = () => {
+  const [authChecked, setAuthChecked] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [projects, setProjects] = useState([]);
   const [changeRequests, setChangeRequests] = useState([]);
@@ -1065,6 +1068,7 @@ const AdminDashboard = () => {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [loginData, setLoginData] = useState({ email: "", password: "" });
+  const [loginBusy, setLoginBusy] = useState(false);
 
   const isAdminPath = window.location.pathname.startsWith("/admin");
 
@@ -1079,6 +1083,24 @@ const AdminDashboard = () => {
     setChangeRequests(changesBody.change_requests || []);
     setOverview(overviewBody);
   };
+
+  useEffect(() => {
+    if (!isAdminPath) return;
+    let cancelled = false;
+    api("/api/admin/overview")
+      .then(() => {
+        if (!cancelled) setSessionReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setSessionReady(false);
+      })
+      .finally(() => {
+        if (!cancelled) setAuthChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdminPath]);
 
   useEffect(() => {
     if (!sessionReady) return;
@@ -1096,11 +1118,14 @@ const AdminDashboard = () => {
   const login = async (event) => {
     event.preventDefault();
     setError("");
+    setLoginBusy(true);
     try {
       await api("/api/admin/login", { method: "POST", body: JSON.stringify(loginData) });
       setSessionReady(true);
     } catch (loginError) {
       setError(loginError.message);
+    } finally {
+      setLoginBusy(false);
     }
   };
 
@@ -1205,206 +1230,399 @@ const AdminDashboard = () => {
     });
   };
 
+  const statusClass = (status) => `status-pill status-${String(status || "planned").replaceAll("_", "-")}`;
+
   if (!isAdminPath) return <PublicWebsite />;
+
+  if (!authChecked) {
+    return (
+      <div className="admin-shell">
+        <div className="admin-loading">Checking session…</div>
+      </div>
+    );
+  }
 
   if (!sessionReady) {
     return (
-      <main className="site">
-        <section className="panel auth-panel">
-          <h1>Admin Login</h1>
-          <form onSubmit={login} className="form-grid">
-            <input
-              type="email"
-              placeholder="Admin email"
-              value={loginData.email}
-              onChange={(event) => setLoginData((prev) => ({ ...prev, email: event.target.value }))}
-              required
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={loginData.password}
-              onChange={(event) => setLoginData((prev) => ({ ...prev, password: event.target.value }))}
-              required
-            />
-            <button className="button" type="submit">
-              Login
-            </button>
-          </form>
-          {error ? <p className="error">{error}</p> : null}
-        </section>
-      </main>
+      <div className="admin-shell">
+        <div className="bg-glow glow-one" aria-hidden="true" />
+        <div className="bg-glow glow-two" aria-hidden="true" />
+        <div className="admin-login-wrap">
+          <a className="brand-mark admin-login-brand" href="/">
+            <span className="brand-logo" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+            </span>
+            <span>Digi-Tech</span>
+          </a>
+          <section className="admin-login-card">
+            <div className="admin-login-icon" aria-hidden="true">
+              <Lock size={20} />
+            </div>
+            <h1>Admin sign in</h1>
+            <p className="admin-login-copy">Secure access to projects, payments, and change requests.</p>
+            <form onSubmit={login} className="admin-login-form">
+              <label className="field">
+                <span>Email</span>
+                <input
+                  type="email"
+                  autoComplete="username"
+                  placeholder="admin@digi-tech.local"
+                  value={loginData.email}
+                  onChange={(event) => setLoginData((prev) => ({ ...prev, email: event.target.value }))}
+                  required
+                />
+              </label>
+              <label className="field">
+                <span>Password</span>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  value={loginData.password}
+                  onChange={(event) => setLoginData((prev) => ({ ...prev, password: event.target.value }))}
+                  required
+                />
+              </label>
+              <button className="btn-primary admin-login-submit" type="submit" disabled={loginBusy}>
+                {loginBusy ? "Signing in…" : "Sign in"}
+              </button>
+            </form>
+            {error ? <p className="error">{error}</p> : null}
+            <a className="admin-back-link" href="/">
+              ← Back to website
+            </a>
+          </section>
+        </div>
+      </div>
     );
   }
 
   return (
-    <main className="site admin">
-      <header className="admin-header">
-        <div>
-          <p className="eyebrow">Admin Panel</p>
-          <h1>Projects & Payments Dashboard</h1>
-        </div>
-        <div className="header-actions">
-          <select value={currencyFilter} onChange={(event) => setCurrencyFilter(event.target.value)}>
-            <option value="">All currencies</option>
-            <option value="USD">USD</option>
-            <option value="EGP">EGP</option>
-          </select>
-          <button className="button secondary" onClick={logout} type="button">
-            Logout
-          </button>
+    <div className="admin-shell">
+      <div className="bg-glow glow-one" aria-hidden="true" />
+      <div className="bg-glow glow-two" aria-hidden="true" />
+
+      <header className="admin-topbar">
+        <div className="admin-topbar-inner">
+          <div className="admin-brand-block">
+            <a className="brand-mark" href="/">
+              <span className="brand-logo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+              </span>
+              <span>Digi-Tech</span>
+            </a>
+            <div>
+              <p className="eyebrow">Internal console</p>
+              <h1>Projects & payments</h1>
+            </div>
+          </div>
+          <div className="header-actions">
+            <label className="field inline-field">
+              <span>Currency</span>
+              <select value={currencyFilter} onChange={(event) => setCurrencyFilter(event.target.value)}>
+                <option value="">All currencies</option>
+                <option value="USD">USD</option>
+                <option value="EGP">EGP</option>
+              </select>
+            </label>
+            <button className="btn-secondary admin-logout" onClick={logout} type="button">
+              <LogOut size={16} />
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
-      <section className="metrics">
-        <article><h3>Total Projects</h3><p>{totals.total_projects || 0}</p></article>
-        <article><h3>Active Projects</h3><p>{totals.active_projects || 0}</p></article>
-        <article><h3>Total Revenue</h3><p>{formatCurrency(totals.total_revenue_with_addons || totals.total_paid || 0, dashboardCurrency)}</p></article>
-        <article><h3>Pending Balance</h3><p>{formatCurrency((totals.total_remaining || 0) + (changeSummary.pending_settlements || 0), dashboardCurrency)}</p></article>
-        <article><h3>Open Changes</h3><p>{changeSummary.open_requests || 0}</p></article>
-      </section>
+      <main className="admin-main">
+        <section className="metrics">
+          <article>
+            <h3>Total projects</h3>
+            <p>{totals.total_projects || 0}</p>
+          </article>
+          <article>
+            <h3>Active projects</h3>
+            <p>{totals.active_projects || 0}</p>
+          </article>
+          <article>
+            <h3>Total revenue</h3>
+            <p>{formatCurrency(totals.total_revenue_with_addons || totals.total_paid || 0, dashboardCurrency)}</p>
+          </article>
+          <article>
+            <h3>Pending balance</h3>
+            <p>{formatCurrency((totals.total_remaining || 0) + (changeSummary.pending_settlements || 0), dashboardCurrency)}</p>
+          </article>
+          <article>
+            <h3>Open changes</h3>
+            <p>{changeSummary.open_requests || 0}</p>
+          </article>
+        </section>
 
-      <section className="split">
-        <article className="panel">
-          <h2>{projectEditingId ? "Edit Project" : "Add Project"}</h2>
-          <form onSubmit={saveProject} className="form-grid">
-            <input placeholder="Client name" value={projectForm.client_name} onChange={(e) => setProjectForm((p) => ({ ...p, client_name: e.target.value }))} required />
-            <input placeholder="Project name" value={projectForm.project_name} onChange={(e) => setProjectForm((p) => ({ ...p, project_name: e.target.value }))} required />
-            <select value={projectForm.currency} onChange={(e) => setProjectForm((p) => ({ ...p, currency: e.target.value }))}>
-              <option value="USD">USD</option>
-              <option value="EGP">EGP</option>
-            </select>
-            <input type="number" min="0" step="0.01" placeholder="Total price" value={projectForm.total_price} onChange={(e) => setProjectForm((p) => ({ ...p, total_price: e.target.value }))} required />
-            <input type="number" min="0" step="0.01" placeholder="Paid amount" value={projectForm.paid_amount} onChange={(e) => setProjectForm((p) => ({ ...p, paid_amount: e.target.value }))} required />
-            <input type="date" value={projectForm.start_date} onChange={(e) => setProjectForm((p) => ({ ...p, start_date: e.target.value }))} required />
-            <input type="date" value={projectForm.deadline} onChange={(e) => setProjectForm((p) => ({ ...p, deadline: e.target.value }))} required />
-            <select value={projectForm.status} onChange={(e) => setProjectForm((p) => ({ ...p, status: e.target.value }))}>
-              <option value="planned">Planned</option>
-              <option value="in_progress">In Progress</option>
-              <option value="on_hold">On Hold</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-            <textarea
-              placeholder="Notes"
-              rows={3}
-              value={projectForm.notes}
-              onChange={(e) => setProjectForm((p) => ({ ...p, notes: e.target.value }))}
-            />
-            <button className="button" type="submit">Save Project</button>
-          </form>
-        </article>
+        {(feedback || error) && (
+          <div className="admin-alerts">
+            {feedback ? <p className="status">{feedback}</p> : null}
+            {error ? <p className="error">{error}</p> : null}
+          </div>
+        )}
 
-        <article className="panel">
-          <h2>{changeEditingId ? "Edit Change Request" : "Add Change Request"}</h2>
-          <form onSubmit={saveChangeRequest} className="form-grid">
-            <select value={changeForm.project_id} onChange={(e) => setChangeForm((p) => ({ ...p, project_id: e.target.value }))} required>
-              <option value="">Select project</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  #{project.id} {project.project_name}
-                </option>
-              ))}
-            </select>
-            <input placeholder="Request title" value={changeForm.title} onChange={(e) => setChangeForm((p) => ({ ...p, title: e.target.value }))} required />
-            <input type="number" min="0" step="0.01" placeholder="Price" value={changeForm.price} onChange={(e) => setChangeForm((p) => ({ ...p, price: e.target.value }))} required />
-            <input type="number" min="0" step="0.01" placeholder="Deposit" value={changeForm.deposit_amount} onChange={(e) => setChangeForm((p) => ({ ...p, deposit_amount: e.target.value }))} required />
-            <input type="date" value={changeForm.start_date} onChange={(e) => setChangeForm((p) => ({ ...p, start_date: e.target.value }))} />
-            <input type="date" value={changeForm.deadline} onChange={(e) => setChangeForm((p) => ({ ...p, deadline: e.target.value }))} />
-            <input type="number" min="0" step="1" placeholder="Estimated days" value={changeForm.estimated_days} onChange={(e) => setChangeForm((p) => ({ ...p, estimated_days: e.target.value }))} />
-            <select value={changeForm.status} onChange={(e) => setChangeForm((p) => ({ ...p, status: e.target.value }))}>
-              <option value="draft">Draft</option>
-              <option value="sent">Sent</option>
-              <option value="approved">Approved</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="rejected">Rejected</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-            <textarea
-              placeholder="Scope details"
-              rows={3}
-              value={changeForm.description}
-              onChange={(e) => setChangeForm((p) => ({ ...p, description: e.target.value }))}
-            />
-            <button className="button" type="submit">Save Change Request</button>
-          </form>
-        </article>
-      </section>
+        <section className="split">
+          <article className="panel admin-panel">
+            <div className="panel-head">
+              <h2>{projectEditingId ? "Edit project" : "Add project"}</h2>
+              {projectEditingId ? (
+                <button
+                  className="link"
+                  type="button"
+                  onClick={() => {
+                    setProjectEditingId(null);
+                    setProjectForm(emptyProject);
+                  }}
+                >
+                  Cancel edit
+                </button>
+              ) : null}
+            </div>
+            <form onSubmit={saveProject} className="form-grid admin-form">
+              <label className="field">
+                <span>Client name</span>
+                <input value={projectForm.client_name} onChange={(e) => setProjectForm((p) => ({ ...p, client_name: e.target.value }))} required />
+              </label>
+              <label className="field">
+                <span>Project name</span>
+                <input value={projectForm.project_name} onChange={(e) => setProjectForm((p) => ({ ...p, project_name: e.target.value }))} required />
+              </label>
+              <label className="field">
+                <span>Currency</span>
+                <select value={projectForm.currency} onChange={(e) => setProjectForm((p) => ({ ...p, currency: e.target.value }))}>
+                  <option value="USD">USD</option>
+                  <option value="EGP">EGP</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Status</span>
+                <select value={projectForm.status} onChange={(e) => setProjectForm((p) => ({ ...p, status: e.target.value }))}>
+                  <option value="planned">Planned</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="on_hold">On Hold</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Total price</span>
+                <input type="number" min="0" step="0.01" value={projectForm.total_price} onChange={(e) => setProjectForm((p) => ({ ...p, total_price: e.target.value }))} required />
+              </label>
+              <label className="field">
+                <span>Paid amount</span>
+                <input type="number" min="0" step="0.01" value={projectForm.paid_amount} onChange={(e) => setProjectForm((p) => ({ ...p, paid_amount: e.target.value }))} required />
+              </label>
+              <label className="field">
+                <span>Start date</span>
+                <input type="date" value={projectForm.start_date} onChange={(e) => setProjectForm((p) => ({ ...p, start_date: e.target.value }))} required />
+              </label>
+              <label className="field">
+                <span>Deadline</span>
+                <input type="date" value={projectForm.deadline} onChange={(e) => setProjectForm((p) => ({ ...p, deadline: e.target.value }))} required />
+              </label>
+              <label className="field full">
+                <span>Notes</span>
+                <textarea rows={3} value={projectForm.notes} onChange={(e) => setProjectForm((p) => ({ ...p, notes: e.target.value }))} />
+              </label>
+              <button className="btn-primary" type="submit">
+                {projectEditingId ? "Update project" : "Save project"}
+              </button>
+            </form>
+          </article>
 
-      <section className="panel">
-        <h2>Projects</h2>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Client</th>
-                <th>Project</th>
-                <th>Status</th>
-                <th>Financials</th>
-                <th>Deadline</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {projects.map((project) => (
-                <tr key={project.id}>
-                  <td>{project.client_name}</td>
-                  <td>{project.project_name}</td>
-                  <td>{project.metrics?.effective_status || project.status}</td>
-                  <td>
-                    {formatCurrency(project.paid_amount, project.currency)} / {formatCurrency(project.total_price, project.currency)}
-                  </td>
-                  <td>{project.deadline}</td>
-                  <td>
-                    <button className="link" onClick={() => beginProjectEdit(project)} type="button">Edit</button>
-                    <button className="link danger" onClick={() => deleteProject(project.id)} type="button">Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <article className="panel admin-panel">
+            <div className="panel-head">
+              <h2>{changeEditingId ? "Edit change request" : "Add change request"}</h2>
+              {changeEditingId ? (
+                <button
+                  className="link"
+                  type="button"
+                  onClick={() => {
+                    setChangeEditingId(null);
+                    setChangeForm(emptyChangeRequest);
+                  }}
+                >
+                  Cancel edit
+                </button>
+              ) : null}
+            </div>
+            <form onSubmit={saveChangeRequest} className="form-grid admin-form">
+              <label className="field">
+                <span>Project</span>
+                <select value={changeForm.project_id} onChange={(e) => setChangeForm((p) => ({ ...p, project_id: e.target.value }))} required>
+                  <option value="">Select project</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      #{project.id} {project.project_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Request title</span>
+                <input value={changeForm.title} onChange={(e) => setChangeForm((p) => ({ ...p, title: e.target.value }))} required />
+              </label>
+              <label className="field">
+                <span>Price</span>
+                <input type="number" min="0" step="0.01" value={changeForm.price} onChange={(e) => setChangeForm((p) => ({ ...p, price: e.target.value }))} required />
+              </label>
+              <label className="field">
+                <span>Deposit</span>
+                <input type="number" min="0" step="0.01" value={changeForm.deposit_amount} onChange={(e) => setChangeForm((p) => ({ ...p, deposit_amount: e.target.value }))} required />
+              </label>
+              <label className="field">
+                <span>Start date</span>
+                <input type="date" value={changeForm.start_date} onChange={(e) => setChangeForm((p) => ({ ...p, start_date: e.target.value }))} />
+              </label>
+              <label className="field">
+                <span>Deadline</span>
+                <input type="date" value={changeForm.deadline} onChange={(e) => setChangeForm((p) => ({ ...p, deadline: e.target.value }))} />
+              </label>
+              <label className="field">
+                <span>Estimated days</span>
+                <input type="number" min="0" step="1" value={changeForm.estimated_days} onChange={(e) => setChangeForm((p) => ({ ...p, estimated_days: e.target.value }))} />
+              </label>
+              <label className="field">
+                <span>Status</span>
+                <select value={changeForm.status} onChange={(e) => setChangeForm((p) => ({ ...p, status: e.target.value }))}>
+                  <option value="draft">Draft</option>
+                  <option value="sent">Sent</option>
+                  <option value="approved">Approved</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </label>
+              <label className="field full">
+                <span>Scope details</span>
+                <textarea rows={3} value={changeForm.description} onChange={(e) => setChangeForm((p) => ({ ...p, description: e.target.value }))} />
+              </label>
+              <button className="btn-primary" type="submit">
+                {changeEditingId ? "Update change request" : "Save change request"}
+              </button>
+            </form>
+          </article>
+        </section>
 
-      <section className="panel">
-        <h2>Change Requests</h2>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Project</th>
-                <th>Request</th>
-                <th>Financials</th>
-                <th>Timeline</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {changeRequests.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.project_name}</td>
-                  <td>{item.title}</td>
-                  <td>
-                    {formatCurrency(item.price, item.currency)} | Deposit: {formatCurrency(item.deposit_amount, item.currency)}
-                  </td>
-                  <td>{item.start_date || "-"} → {item.deadline || "-"}</td>
-                  <td>{item.status}</td>
-                  <td>
-                    <button className="link" onClick={() => beginChangeEdit(item)} type="button">Edit</button>
-                    <button className="link danger" onClick={() => deleteChangeRequest(item.id)} type="button">Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        <section className="panel admin-panel">
+          <div className="panel-head">
+            <h2>Projects</h2>
+            <span className="panel-count">{projects.length} records</span>
+          </div>
+          <div className="table-wrap">
+            {projects.length === 0 ? (
+              <p className="empty-state">No projects yet. Add your first project above.</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Client</th>
+                    <th>Project</th>
+                    <th>Status</th>
+                    <th>Financials</th>
+                    <th>Deadline</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projects.map((project) => (
+                    <tr key={project.id}>
+                      <td>{project.client_name}</td>
+                      <td>{project.project_name}</td>
+                      <td>
+                        <span className={statusClass(project.metrics?.effective_status || project.status)}>
+                          {project.metrics?.effective_status || project.status}
+                        </span>
+                      </td>
+                      <td>
+                        {formatCurrency(project.paid_amount, project.currency)} / {formatCurrency(project.total_price, project.currency)}
+                      </td>
+                      <td>{project.deadline}</td>
+                      <td className="table-actions">
+                        <button className="link" onClick={() => beginProjectEdit(project)} type="button">
+                          Edit
+                        </button>
+                        <button className="link danger" onClick={() => deleteProject(project.id)} type="button">
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
 
-      {feedback ? <p className="status">{feedback}</p> : null}
-      {error ? <p className="error">{error}</p> : null}
-    </main>
+        <section className="panel admin-panel">
+          <div className="panel-head">
+            <h2>Change requests</h2>
+            <span className="panel-count">{changeRequests.length} records</span>
+          </div>
+          <div className="table-wrap">
+            {changeRequests.length === 0 ? (
+              <p className="empty-state">No change requests yet.</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Project</th>
+                    <th>Request</th>
+                    <th>Financials</th>
+                    <th>Timeline</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {changeRequests.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.project_name}</td>
+                      <td>{item.title}</td>
+                      <td>
+                        {formatCurrency(item.price, item.currency)} · Deposit {formatCurrency(item.deposit_amount, item.currency)}
+                      </td>
+                      <td>
+                        {item.start_date || "—"} → {item.deadline || "—"}
+                      </td>
+                      <td>
+                        <span className={statusClass(item.status)}>{item.status}</span>
+                      </td>
+                      <td className="table-actions">
+                        <button className="link" onClick={() => beginChangeEdit(item)} type="button">
+                          Edit
+                        </button>
+                        <button className="link danger" onClick={() => deleteChangeRequest(item.id)} type="button">
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
+      </main>
+    </div>
   );
 };
 

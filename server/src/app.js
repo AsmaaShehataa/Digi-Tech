@@ -6,7 +6,7 @@ const session = require("express-session");
 const dotenv = require("dotenv");
 const { DashboardRepository, buildOverview, serializeCsv, normalizeCurrency, normalizeChangeRequestStatus } = require("./repository");
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const BASE_DIR = path.resolve(__dirname, "../..");
 const DATA_DIR = path.join(BASE_DIR, "data");
