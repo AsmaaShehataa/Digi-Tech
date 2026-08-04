@@ -1,5 +1,6 @@
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
@@ -17,7 +18,40 @@ const APP_DEPLOY_TARGET = (process.env.APP_DEPLOY_TARGET || "public").trim().toL
 const ADMIN_MODULE_ENABLED = APP_DEPLOY_TARGET === "admin_internal";
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "admin@digi-tech.local").trim().toLowerCase();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "ChangeMe123!";
-const SESSION_SECRET = process.env.SESSION_SECRET || process.env.FLASK_SECRET_KEY || "dev-secret-change-in-production";
+// Placeholders that have appeared in this repo's docs, plus the SHA-256 of a
+// secret that was committed to .env.example and must never be trusted again.
+const PLACEHOLDER_SESSION_SECRETS = new Set([
+  "dev-secret-change-in-production",
+  "replace-with-long-random-secret",
+  "generate-with-openssl-rand-hex-32",
+  "change-me-to-a-long-random-secret-32chars+",
+]);
+const LEAKED_SESSION_SECRET_HASHES = new Set([
+  "5b7a1003b5a759adfb515e3612633b7c9a139ede725f5267f85c2ef1f6a504e7",
+]);
+const GENERATE_HINT = "Generate one with: openssl rand -hex 32";
+
+const resolveSessionSecret = () => {
+  const secret = String(process.env.SESSION_SECRET || process.env.FLASK_SECRET_KEY || "").trim();
+  if (!secret) {
+    throw new Error(`SESSION_SECRET is required. ${GENERATE_HINT}`);
+  }
+  if (PLACEHOLDER_SESSION_SECRETS.has(secret)) {
+    throw new Error(`SESSION_SECRET is still a placeholder value. ${GENERATE_HINT}`);
+  }
+  const digest = crypto.createHash("sha256").update(secret).digest("hex");
+  if (LEAKED_SESSION_SECRET_HASHES.has(digest)) {
+    throw new Error(
+      `SESSION_SECRET matches a value that was published in this repository's git history, so admin session cookies could be forged. ${GENERATE_HINT}`
+    );
+  }
+  if (secret.length < 32) {
+    throw new Error(`SESSION_SECRET must be at least 32 characters (got ${secret.length}). ${GENERATE_HINT}`);
+  }
+  return secret;
+};
+
+const SESSION_SECRET = resolveSessionSecret();
 const PUBLIC_API_ALLOWED_ORIGINS = (process.env.PUBLIC_API_ALLOWED_ORIGINS || "*")
   .split(",")
   .map((origin) => origin.trim().replace(/\/$/, ""))
