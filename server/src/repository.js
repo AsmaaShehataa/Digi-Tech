@@ -1,6 +1,4 @@
-const fs = require("fs");
-const path = require("path");
-const sqlite3 = require("sqlite3");
+const { MongoClient } = require("mongodb");
 const bcrypt = require("bcryptjs");
 
 const ALLOWED_PROJECT_STATUSES = new Set(["planned", "in_progress", "on_hold", "completed", "cancelled"]);
@@ -204,177 +202,122 @@ const computeChangeRequestMetrics = (changeRequest) => {
   };
 };
 
+const COLLECTIONS = {
+  projects: "projects",
+  adminUsers: "admin_users",
+  inquiries: "inquiries",
+  changeRequests: "change_requests",
+  counters: "counters",
+};
+
+const nowIso = () => new Date().toISOString();
+
 class DashboardRepository {
-  constructor({ dbPath, adminEmail, adminPassword }) {
-    this.dbPath = dbPath;
+  constructor({ uri, dbName, adminEmail, adminPassword }) {
+    if (!uri) {
+      throw new Error("MONGODB_URI is required. Set it in server/.env or your host's environment variables.");
+    }
+    this.dbName = dbName;
     this.adminEmail = adminEmail;
     this.adminPassword = adminPassword;
-    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-    this.db = new sqlite3.Database(dbPath);
+    this.client = new MongoClient(uri);
+    this.db = null;
   }
 
-  run(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.run(sql, params, function callback(error) {
-        if (error) return reject(error);
-        return resolve({ lastID: this.lastID, changes: this.changes });
-      });
-    });
-  }
-
-  get(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.get(sql, params, (error, row) => {
-        if (error) return reject(error);
-        return resolve(row || null);
-      });
-    });
-  }
-
-  all(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.all(sql, params, (error, rows) => {
-        if (error) return reject(error);
-        return resolve(rows || []);
-      });
-    });
+  collection(name) {
+    if (!this.db) throw new Error("Database connection is not initialized.");
+    return this.db.collection(name);
   }
 
   async init() {
-    await this.run(`
-      CREATE TABLE IF NOT EXISTS projects (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        client_name TEXT NOT NULL,
-        project_name TEXT NOT NULL,
-        currency TEXT NOT NULL DEFAULT 'USD',
-        total_price REAL NOT NULL,
-        paid_amount REAL NOT NULL DEFAULT 0,
-        start_date TEXT NOT NULL,
-        deadline TEXT NOT NULL,
-        status TEXT NOT NULL,
-        notes TEXT,
-        milestones_json TEXT NOT NULL DEFAULT '[]',
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    await this.run(`
-      CREATE TABLE IF NOT EXISTS admin_users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL,
-        is_active INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        last_login_at TEXT
-      )
-    `);
-    await this.run(`
-      CREATE TABLE IF NOT EXISTS inquiries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        full_name TEXT NOT NULL,
-        email TEXT NOT NULL,
-        company TEXT,
-        message TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    await this.run(`
-      CREATE TABLE IF NOT EXISTS change_requests (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        description TEXT,
-        requested_scope_json TEXT NOT NULL DEFAULT '[]',
-        price REAL NOT NULL DEFAULT 0,
-        deposit_amount REAL NOT NULL DEFAULT 0,
-        start_date TEXT,
-        deadline TEXT,
-        estimated_days INTEGER,
-        status TEXT NOT NULL DEFAULT 'draft',
-        requested_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        approved_at TEXT,
-        completed_at TEXT,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
-      )
-    `);
-    await this.ensureProjectsSchema();
+    await this.client.connect();
+    this.db = this.client.db(this.dbName || undefined);
+    await this.ensureIndexes();
     await this.ensureDefaultAdmin();
   }
 
-  async ensureProjectsSchema() {
-    const columns = await this.all("PRAGMA table_info(projects)");
-    const names = new Set(columns.map((column) => column.name));
-    const migrations = [
-      ["currency", "ALTER TABLE projects ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'"],
-      ["milestones_json", "ALTER TABLE projects ADD COLUMN milestones_json TEXT NOT NULL DEFAULT '[]'"],
-      ["notes", "ALTER TABLE projects ADD COLUMN notes TEXT"],
-      ["created_at", "ALTER TABLE projects ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"],
-      ["updated_at", "ALTER TABLE projects ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"],
-    ];
-    for (const [name, sql] of migrations) {
-      if (!names.has(name)) {
-        await this.run(sql);
-      }
-    }
+  async close() {
+    await this.client.close();
+  }
+
+  async ensureIndexes() {
+    await Promise.all([
+      this.collection(COLLECTIONS.adminUsers).createIndex({ email: 1 }, { unique: true }),
+      this.collection(COLLECTIONS.projects).createIndex({ deadline: 1 }),
+      this.collection(COLLECTIONS.projects).createIndex({ currency: 1 }),
+      this.collection(COLLECTIONS.changeRequests).createIndex({ project_id: 1 }),
+      this.collection(COLLECTIONS.changeRequests).createIndex({ created_at: -1 }),
+    ]);
+  }
+
+  // Sequential numeric ids keep the public API shape identical to the previous SQLite schema.
+  async nextId(sequenceName) {
+    const result = await this.collection(COLLECTIONS.counters).findOneAndUpdate(
+      { _id: sequenceName },
+      { $inc: { seq: 1 } },
+      { upsert: true, returnDocument: "after" }
+    );
+    const doc = result?.value ?? result;
+    return Number(doc.seq);
   }
 
   async ensureDefaultAdmin() {
-    const existing = await this.get("SELECT id FROM admin_users WHERE email = ?", [this.adminEmail]);
+    const existing = await this.collection(COLLECTIONS.adminUsers).findOne({ email: this.adminEmail });
     if (existing) return;
-    const hash = bcrypt.hashSync(this.adminPassword, 10);
-    await this.run("INSERT INTO admin_users (email, password_hash, is_active) VALUES (?, ?, 1)", [this.adminEmail, hash]);
+    await this.collection(COLLECTIONS.adminUsers).insertOne({
+      _id: await this.nextId("admin_users"),
+      email: this.adminEmail,
+      password_hash: bcrypt.hashSync(this.adminPassword, 10),
+      is_active: true,
+      created_at: nowIso(),
+      last_login_at: null,
+    });
   }
 
   async authenticateAdmin(email, password) {
     const normalized = String(email || "").trim().toLowerCase();
     if (!normalized || !password) return null;
-    const row = await this.get("SELECT id, email, password_hash, is_active FROM admin_users WHERE email = ?", [normalized]);
-    if (!row || !row.is_active) return null;
-    if (!bcrypt.compareSync(password, row.password_hash)) return null;
-    await this.run("UPDATE admin_users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", [row.id]);
-    return { id: row.id, email: row.email };
+    const user = await this.collection(COLLECTIONS.adminUsers).findOne({ email: normalized });
+    if (!user || !user.is_active) return null;
+    if (!bcrypt.compareSync(password, user.password_hash)) return null;
+    await this.collection(COLLECTIONS.adminUsers).updateOne(
+      { _id: user._id },
+      { $set: { last_login_at: nowIso() } }
+    );
+    return { id: user._id, email: user.email };
   }
 
-  serializeProjectRow(row) {
-    const milestones = JSON.parse(row.milestones_json || "[]");
+  serializeProjectRow(doc) {
     const project = {
-      id: row.id,
-      client_name: row.client_name,
-      project_name: row.project_name,
-      currency: row.currency,
-      total_price: Number(Number(row.total_price).toFixed(2)),
-      paid_amount: Number(Number(row.paid_amount).toFixed(2)),
-      start_date: row.start_date,
-      deadline: row.deadline,
-      status: row.status,
-      notes: row.notes,
-      milestones,
+      id: doc._id,
+      client_name: doc.client_name,
+      project_name: doc.project_name,
+      currency: doc.currency,
+      total_price: Number(Number(doc.total_price).toFixed(2)),
+      paid_amount: Number(Number(doc.paid_amount).toFixed(2)),
+      start_date: doc.start_date,
+      deadline: doc.deadline,
+      status: doc.status,
+      notes: doc.notes ?? null,
+      milestones: Array.isArray(doc.milestones) ? doc.milestones : [],
     };
     project.metrics = computeProjectMetrics(project);
     return project;
   }
 
   async listProjects(currencyFilter = null) {
-    const params = [];
-    let sql = `SELECT id, client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes, milestones_json FROM projects`;
-    if (currencyFilter) {
-      sql += " WHERE currency = ?";
-      params.push(currencyFilter);
-    }
-    sql += " ORDER BY deadline ASC, id DESC";
-    const rows = await this.all(sql, params);
-    return rows.map((row) => this.serializeProjectRow(row));
+    const filter = currencyFilter ? { currency: currencyFilter } : {};
+    const docs = await this.collection(COLLECTIONS.projects)
+      .find(filter)
+      .sort({ deadline: 1, _id: -1 })
+      .toArray();
+    return docs.map((doc) => this.serializeProjectRow(doc));
   }
 
   async getProject(projectId) {
-    const row = await this.get(
-      "SELECT id, client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes, milestones_json FROM projects WHERE id = ?",
-      [projectId]
-    );
-    if (!row) throw new Error("Project not found");
-    return this.serializeProjectRow(row);
+    const doc = await this.collection(COLLECTIONS.projects).findOne({ _id: Number(projectId) });
+    if (!doc) throw new Error("Project not found");
+    return this.serializeProjectRow(doc);
   }
 
   async createProject(payload) {
@@ -394,12 +337,24 @@ class DashboardRepository {
     const notes = String(payload.notes || "").trim() || null;
     const milestones = sanitizeMilestones(payload.milestones || [], startDate, deadline, totalPrice);
 
-    const result = await this.run(
-      `INSERT INTO projects (client_name, project_name, currency, total_price, paid_amount, start_date, deadline, status, notes, milestones_json)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [clientName, projectName, currency, totalPrice, paidAmount, startDate, deadline, status, notes, JSON.stringify(milestones)]
-    );
-    return this.getProject(result.lastID);
+    const id = await this.nextId("projects");
+    const timestamp = nowIso();
+    await this.collection(COLLECTIONS.projects).insertOne({
+      _id: id,
+      client_name: clientName,
+      project_name: projectName,
+      currency,
+      total_price: totalPrice,
+      paid_amount: paidAmount,
+      start_date: startDate,
+      deadline,
+      status,
+      notes,
+      milestones,
+      created_at: timestamp,
+      updated_at: timestamp,
+    });
+    return this.getProject(id);
   }
 
   async updateProject(projectId, payload) {
@@ -429,18 +384,31 @@ class DashboardRepository {
     const notes = String(merged.notes || "").trim() || null;
     const milestones = sanitizeMilestones(merged.milestones || [], startDate, deadline, totalPrice);
 
-    await this.run(
-      `UPDATE projects
-       SET client_name = ?, project_name = ?, currency = ?, total_price = ?, paid_amount = ?, start_date = ?, deadline = ?,
-           status = ?, notes = ?, milestones_json = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [clientName, projectName, currency, totalPrice, paidAmount, startDate, deadline, status, notes, JSON.stringify(milestones), projectId]
+    await this.collection(COLLECTIONS.projects).updateOne(
+      { _id: Number(projectId) },
+      {
+        $set: {
+          client_name: clientName,
+          project_name: projectName,
+          currency,
+          total_price: totalPrice,
+          paid_amount: paidAmount,
+          start_date: startDate,
+          deadline,
+          status,
+          notes,
+          milestones,
+          updated_at: nowIso(),
+        },
+      }
     );
     return this.getProject(projectId);
   }
 
   async deleteProject(projectId) {
-    await this.run("DELETE FROM projects WHERE id = ?", [projectId]);
+    const id = Number(projectId);
+    await this.collection(COLLECTIONS.changeRequests).deleteMany({ project_id: id });
+    await this.collection(COLLECTIONS.projects).deleteOne({ _id: id });
   }
 
   async createInquiry(payload) {
@@ -451,73 +419,73 @@ class DashboardRepository {
     if (!fullName || !email || !message) {
       throw new Error("full_name, email, and message are required.");
     }
-    const result = await this.run(
-      "INSERT INTO inquiries (full_name, email, company, message) VALUES (?, ?, ?, ?)",
-      [fullName, email, company, message]
-    );
-    return this.get("SELECT id, full_name, email, company, message, created_at FROM inquiries WHERE id = ?", [result.lastID]);
+    const doc = {
+      _id: await this.nextId("inquiries"),
+      full_name: fullName,
+      email,
+      company,
+      message,
+      created_at: nowIso(),
+    };
+    await this.collection(COLLECTIONS.inquiries).insertOne(doc);
+    const { _id, ...rest } = doc;
+    return { id: _id, ...rest };
   }
 
-  serializeChangeRequestRow(row) {
-    const requestedScope = JSON.parse(row.requested_scope_json || "[]");
+  serializeChangeRequestRow(doc) {
+    const project = doc.project || {};
     const changeRequest = {
-      id: row.id,
-      project_id: row.project_id,
-      project_name: row.project_name || null,
-      client_name: row.client_name || null,
-      currency: row.currency || null,
-      title: row.title,
-      description: row.description,
-      requested_scope: requestedScope,
-      price: Number(Number(row.price).toFixed(2)),
-      deposit_amount: Number(Number(row.deposit_amount || 0).toFixed(2)),
-      start_date: row.start_date,
-      deadline: row.deadline,
-      estimated_days: row.estimated_days === null ? null : Number(row.estimated_days),
-      status: row.status,
-      requested_at: row.requested_at,
-      approved_at: row.approved_at,
-      completed_at: row.completed_at,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      id: doc._id,
+      project_id: doc.project_id,
+      project_name: project.project_name || null,
+      client_name: project.client_name || null,
+      currency: project.currency || null,
+      title: doc.title,
+      description: doc.description ?? null,
+      requested_scope: Array.isArray(doc.requested_scope) ? doc.requested_scope : [],
+      price: Number(Number(doc.price).toFixed(2)),
+      deposit_amount: Number(Number(doc.deposit_amount || 0).toFixed(2)),
+      start_date: doc.start_date ?? null,
+      deadline: doc.deadline ?? null,
+      estimated_days: doc.estimated_days === null || doc.estimated_days === undefined ? null : Number(doc.estimated_days),
+      status: doc.status,
+      requested_at: doc.requested_at,
+      approved_at: doc.approved_at ?? null,
+      completed_at: doc.completed_at ?? null,
+      created_at: doc.created_at,
+      updated_at: doc.updated_at,
     };
     changeRequest.metrics = computeChangeRequestMetrics(changeRequest);
     return changeRequest;
   }
 
-  async listChangeRequests({ projectId = null, status = null, currency = null } = {}) {
-    let sql = `
-      SELECT
-        cr.id, cr.project_id, p.project_name, p.client_name, p.currency,
-        cr.title, cr.description, cr.requested_scope_json, cr.price, cr.deposit_amount,
-        cr.start_date, cr.deadline, cr.estimated_days, cr.status, cr.requested_at,
-        cr.approved_at, cr.completed_at, cr.created_at, cr.updated_at
-      FROM change_requests cr
-      JOIN projects p ON p.id = cr.project_id
-    `;
-    const filters = [];
-    const params = [];
-    if (projectId !== null) {
-      filters.push("cr.project_id = ?");
-      params.push(projectId);
-    }
-    if (status) {
-      filters.push("cr.status = ?");
-      params.push(status);
-    }
-    if (currency) {
-      filters.push("p.currency = ?");
-      params.push(currency);
-    }
-    if (filters.length) sql += ` WHERE ${filters.join(" AND ")}`;
-    sql += " ORDER BY cr.created_at DESC, cr.id DESC";
-    const rows = await this.all(sql, params);
-    return rows.map((row) => this.serializeChangeRequestRow(row));
+  async listChangeRequests({ projectId = null, status = null, currency = null, changeRequestId = null } = {}) {
+    const match = {};
+    if (projectId !== null) match.project_id = Number(projectId);
+    if (status) match.status = status;
+    if (changeRequestId !== null) match._id = Number(changeRequestId);
+
+    const pipeline = [
+      { $match: match },
+      {
+        $lookup: {
+          from: COLLECTIONS.projects,
+          localField: "project_id",
+          foreignField: "_id",
+          as: "project",
+        },
+      },
+      { $unwind: "$project" },
+    ];
+    if (currency) pipeline.push({ $match: { "project.currency": currency } });
+    pipeline.push({ $sort: { created_at: -1, _id: -1 } });
+
+    const docs = await this.collection(COLLECTIONS.changeRequests).aggregate(pipeline).toArray();
+    return docs.map((doc) => this.serializeChangeRequestRow(doc));
   }
 
   async getChangeRequest(changeRequestId) {
-    const rows = await this.listChangeRequests({});
-    const item = rows.find((row) => Number(row.id) === Number(changeRequestId));
+    const [item] = await this.listChangeRequests({ changeRequestId });
     if (!item) throw new Error("Change request not found");
     return item;
   }
@@ -549,31 +517,30 @@ class DashboardRepository {
       throw new Error("estimated_days must be greater than or equal to zero.");
     }
     const status = normalizeChangeRequestStatus(payload.status || "draft");
-    const nowIso = new Date().toISOString();
-    const approvedAt = ["approved", "in_progress", "completed"].includes(status) ? nowIso : null;
-    const completedAt = status === "completed" ? nowIso : null;
+    const timestamp = nowIso();
+    const approvedAt = ["approved", "in_progress", "completed"].includes(status) ? timestamp : null;
+    const completedAt = status === "completed" ? timestamp : null;
 
-    const result = await this.run(
-      `INSERT INTO change_requests (
-        project_id, title, description, requested_scope_json, price, deposit_amount, start_date, deadline, estimated_days,
-        status, approved_at, completed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        projectId,
-        title,
-        description,
-        JSON.stringify(requestedScope),
-        price,
-        depositAmount,
-        startDate,
-        deadline,
-        estimatedDays,
-        status,
-        approvedAt,
-        completedAt,
-      ]
-    );
-    return this.getChangeRequest(result.lastID);
+    const id = await this.nextId("change_requests");
+    await this.collection(COLLECTIONS.changeRequests).insertOne({
+      _id: id,
+      project_id: projectId,
+      title,
+      description,
+      requested_scope: requestedScope,
+      price,
+      deposit_amount: depositAmount,
+      start_date: startDate,
+      deadline,
+      estimated_days: estimatedDays,
+      status,
+      requested_at: timestamp,
+      approved_at: approvedAt,
+      completed_at: completedAt,
+      created_at: timestamp,
+      updated_at: timestamp,
+    });
+    return this.getChangeRequest(id);
   }
 
   async updateChangeRequest(changeRequestId, payload) {
@@ -606,37 +573,35 @@ class DashboardRepository {
     const status = normalizeChangeRequestStatus(payload.status ?? existing.status);
     let approvedAt = existing.approved_at;
     let completedAt = existing.completed_at;
-    const nowIso = new Date().toISOString();
-    if (["approved", "in_progress", "completed"].includes(status) && !approvedAt) approvedAt = nowIso;
-    completedAt = status === "completed" ? (completedAt || nowIso) : null;
+    const timestamp = nowIso();
+    if (["approved", "in_progress", "completed"].includes(status) && !approvedAt) approvedAt = timestamp;
+    completedAt = status === "completed" ? (completedAt || timestamp) : null;
 
-    await this.run(
-      `UPDATE change_requests
-       SET project_id = ?, title = ?, description = ?, requested_scope_json = ?, price = ?, deposit_amount = ?,
-           start_date = ?, deadline = ?, estimated_days = ?, status = ?, approved_at = ?, completed_at = ?,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [
-        projectId,
-        title,
-        description,
-        JSON.stringify(requestedScope || []),
-        price,
-        depositAmount,
-        startDate,
-        deadline,
-        estimatedDays,
-        status,
-        approvedAt,
-        completedAt,
-        changeRequestId,
-      ]
+    await this.collection(COLLECTIONS.changeRequests).updateOne(
+      { _id: Number(changeRequestId) },
+      {
+        $set: {
+          project_id: projectId,
+          title,
+          description,
+          requested_scope: requestedScope || [],
+          price,
+          deposit_amount: depositAmount,
+          start_date: startDate,
+          deadline,
+          estimated_days: estimatedDays,
+          status,
+          approved_at: approvedAt,
+          completed_at: completedAt,
+          updated_at: timestamp,
+        },
+      }
     );
     return this.getChangeRequest(changeRequestId);
   }
 
   async deleteChangeRequest(changeRequestId) {
-    await this.run("DELETE FROM change_requests WHERE id = ?", [changeRequestId]);
+    await this.collection(COLLECTIONS.changeRequests).deleteOne({ _id: Number(changeRequestId) });
   }
 }
 

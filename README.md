@@ -3,7 +3,7 @@
 This repository has been rebuilt on the requested stack:
 
 - **Frontend:** React + Vite (`/client`)
-- **Backend:** Express + SQLite (`/server`)
+- **Backend:** Express + MongoDB (`/server`)
 - **Auth:** Session-based admin authentication
 - **Domain model:** Projects, milestones, change requests, inquiries
 
@@ -20,12 +20,22 @@ It keeps the previous business logic for:
 
 ```text
 client/                  # React app (public website + admin UI)
-server/                  # Express API + SQLite data layer
+server/                  # Express API + MongoDB data layer
   src/repository.js      # core business logic and metrics
   src/app.js             # routes + middleware
   src/index.js           # server bootstrap
-data/                    # SQLite DB file location (runtime)
 ```
+
+---
+
+## Database
+
+The API stores everything in MongoDB (Atlas or self-hosted). Set `MONGODB_URI` and
+`MONGODB_DB` in `server/.env`; collections and indexes are created automatically on
+first boot, along with the default admin user from `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+
+In Atlas, allow your host's outbound IP under **Network Access** (or `0.0.0.0/0` for
+platforms with rotating egress IPs).
 
 ---
 

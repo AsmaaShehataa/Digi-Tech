@@ -9,8 +9,8 @@ const { DashboardRepository, buildOverview, serializeCsv, normalizeCurrency, nor
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const BASE_DIR = path.resolve(__dirname, "../..");
-const DATA_DIR = path.join(BASE_DIR, "data");
-const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, "admin_dashboard.db");
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL || "";
+const MONGODB_DB = (process.env.MONGODB_DB || "digitech").trim();
 const APP_DEPLOY_TARGET = (process.env.APP_DEPLOY_TARGET || "public").trim().toLowerCase() === "admin_internal"
   ? "admin_internal"
   : "public";
@@ -32,7 +32,12 @@ const CURRENCY_SYMBOLS = { USD: "$", EGP: "E£" };
 
 const clientDistPath = path.join(BASE_DIR, "client", "dist");
 const app = express();
-const repo = new DashboardRepository({ dbPath: DB_PATH, adminEmail: ADMIN_EMAIL, adminPassword: ADMIN_PASSWORD });
+const repo = new DashboardRepository({
+  uri: MONGODB_URI,
+  dbName: MONGODB_DB,
+  adminEmail: ADMIN_EMAIL,
+  adminPassword: ADMIN_PASSWORD,
+});
 
 const normalizeOrigin = (origin) => (origin || "").trim().replace(/\/$/, "");
 const isPublicOriginAllowed = (origin) => {
@@ -91,7 +96,7 @@ app.get("/api/public/health", (req, res) => {
     status: "ok",
     app_deploy_target: APP_DEPLOY_TARGET,
     admin_module_enabled: ADMIN_MODULE_ENABLED,
-    database_backend: "sqlite",
+    database_backend: "mongodb",
     timestamp: new Date().toISOString(),
   });
 });
