@@ -231,6 +231,24 @@ const normalizeMongoUri = (value) => {
         "Set the value to the connection string only, with no variable name, quotes, or trailing text."
     );
   }
+
+  // Atlas hands out a template containing <db_password>; catching it here beats
+  // debugging the driver's generic "bad auth" rejection.
+  const credentials = (uri.match(/^mongodb(?:\+srv)?:\/\/([^@]*)@/) || [])[1];
+  if (credentials !== undefined) {
+    const [, password = ""] = credentials.split(":");
+    if (/[<>]/.test(credentials)) {
+      throw new Error(
+        "MONGODB_URI still contains a placeholder in angle brackets (such as <db_password>). " +
+          "Replace it with the real database user password."
+      );
+    }
+    if (["PASSWORD", "YOUR_PASSWORD", "db_password"].includes(password)) {
+      throw new Error(
+        `MONGODB_URI password is still the placeholder "${password}". Replace it with the real database user password.`
+      );
+    }
+  }
   return uri;
 };
 
