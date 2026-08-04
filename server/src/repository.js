@@ -212,15 +212,34 @@ const COLLECTIONS = {
 
 const nowIso = () => new Date().toISOString();
 
+// Hosting-panel env editors commonly keep surrounding quotes or the pasted
+// "KEY=" prefix, which the driver rejects with an opaque scheme error.
+const normalizeMongoUri = (value) => {
+  let uri = String(value ?? "").trim();
+  uri = uri.replace(/^(['"])([\s\S]*)\1$/, "$2").trim();
+  uri = uri.replace(/^MONGODB_URI\s*=\s*/i, "").trim();
+  uri = uri.replace(/^(['"])([\s\S]*)\1$/, "$2").trim();
+
+  if (!uri) {
+    throw new Error("MONGODB_URI is required. Set it in server/.env or your host's environment variables.");
+  }
+  if (!/^mongodb(\+srv)?:\/\//.test(uri)) {
+    // Only echo the part before the credentials so the password never reaches a log.
+    const prefix = uri.slice(0, Math.min(uri.indexOf("://") + 3 || 12, 12));
+    throw new Error(
+      `MONGODB_URI must start with "mongodb://" or "mongodb+srv://" but starts with "${prefix}". ` +
+        "Set the value to the connection string only, with no variable name, quotes, or trailing text."
+    );
+  }
+  return uri;
+};
+
 class DashboardRepository {
   constructor({ uri, dbName, adminEmail, adminPassword }) {
-    if (!uri) {
-      throw new Error("MONGODB_URI is required. Set it in server/.env or your host's environment variables.");
-    }
     this.dbName = dbName;
     this.adminEmail = adminEmail;
     this.adminPassword = adminPassword;
-    this.client = new MongoClient(uri);
+    this.client = new MongoClient(normalizeMongoUri(uri));
     this.db = null;
   }
 
@@ -758,4 +777,5 @@ module.exports = {
   serializeCsv,
   normalizeCurrency,
   normalizeChangeRequestStatus,
+  normalizeMongoUri,
 };
