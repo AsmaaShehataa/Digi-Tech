@@ -4,13 +4,21 @@ const crypto = require("crypto");
 const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
+const { MongoStore } = require("connect-mongo");
 const dotenv = require("dotenv");
-const { DashboardRepository, buildOverview, serializeCsv, normalizeCurrency, normalizeChangeRequestStatus } = require("./repository");
+const {
+  DashboardRepository,
+  buildOverview,
+  serializeCsv,
+  normalizeCurrency,
+  normalizeChangeRequestStatus,
+  normalizeMongoUri,
+} = require("./repository");
 
-dotenv.config({ path: path.join(__dirname, "../.env") });
+dotenv.config({ path: path.join(__dirname, "../.env"), quiet: true });
 
 const BASE_DIR = path.resolve(__dirname, "../..");
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL || "";
+const MONGODB_URI = normalizeMongoUri(process.env.MONGODB_URI || process.env.MONGO_URL || "");
 const MONGODB_DB = (process.env.MONGODB_DB || "digitech").trim();
 const APP_DEPLOY_TARGET = (process.env.APP_DEPLOY_TARGET || "public").trim().toLowerCase() === "admin_internal"
   ? "admin_internal"
@@ -52,6 +60,7 @@ const resolveSessionSecret = () => {
 };
 
 const SESSION_SECRET = resolveSessionSecret();
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const PUBLIC_API_ALLOWED_ORIGINS = (process.env.PUBLIC_API_ALLOWED_ORIGINS || "*")
   .split(",")
   .map((origin) => origin.trim().replace(/\/$/, ""))
@@ -101,15 +110,29 @@ const requireAdminApi = (req, res, next) => {
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// Hosting platforms terminate TLS at a proxy, so without this Express reads the
+// internal hop as plain HTTP and "auto" secure cookies would never be sent.
+app.set("trust proxy", true);
+
 app.use(
   session({
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: MONGODB_URI,
+      dbName: MONGODB_DB,
+      collectionName: "sessions",
+      ttl: SESSION_TTL_SECONDS,
+      touchAfter: 24 * 60 * 60,
+      mongoOptions: { maxPoolSize: 5 },
+    }),
     cookie: {
-      maxAge: 1000 * 60 * 60 * 24 * 7,
+      maxAge: SESSION_TTL_SECONDS * 1000,
+      httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: "auto",
     },
   })
 );
