@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Digi-Tech — Company Profile</title>
+    <link rel="stylesheet" href="../lynks/assets/brand.css" />
+    <style>
+      .doc {
+        max-width: 60rem;
+        margin: 0 auto;
+        padding: 0 2.5rem 6rem;
+      }
+
+      .cover {
+        position: relative;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow: hidden;
+        padding: 4rem 2.5rem;
+      }
+
+      .cover-bg {
+        position: absolute;
+        inset: 0;
+        background-image: url("../lynks/assets/cover-abstract.png");
+        background-size: cover;
+        background-position: center;
+        opacity: 0.5;
+      }
+
+      .cover-bg::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          var(--bg) 12%,
+          rgba(8, 10, 16, 0.72) 55%,
+          rgba(8, 10, 16, 0.35) 100%
+        );
+      }
+
+      .cover-inner {
+        position: relative;
+        z-index: 1;
+        max-width: 60rem;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      .brandmark {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        margin-bottom: 3.5rem;
+      }
+
+      .brandmark .dot {
+        width: 2.1rem;
+        height: 2.1rem;
+        border-radius: 0.6rem;
+        background: var(--gradient);
+        flex: none;
+      }
+
+      .brandmark span {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: var(--text-bright);
+        letter-spacing: -0.01em;
+      }
+
+      .cover h1 {
+        font-size: clamp(2.4rem, 5.4vw, 3.9rem);
+        max-width: 22ch;
+        margin-bottom: 1.2rem;
+      }
+
+      .cover .lede {
+        font-size: 1.12rem;
+        max-width: 52ch;
+        color: var(--text);
+      }
+
+      .cover-meta {
+        margin-top: 3.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2.5rem;
+        padding-top: 1.6rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .cover-meta div span {
+        display: block;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--text-dim);
+        margin-bottom: 0.3rem;
+      }
+
+      .cover-meta div strong {
+        font-size: 1rem;
+      }
+
+      section {
+        padding-top: 4.5rem;
+      }
+
+      section > h2 {
+        font-size: clamp(1.7rem, 3vw, 2.3rem);
+        max-width: 34ch;
+      }
+
+      .section-lede {
+        font-size: 1.05rem;
+        max-width: 68ch;
+        color: var(--text);
+      }
+
+      .rule {
+        height: 1px;
+        background: var(--border);
+        border: 0;
+        margin: 3.5rem 0 0;
+      }
+
+      .mv-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.2rem;
+        margin-top: 1.8rem;
+      }
+
+      .mv-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 2rem;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .mv-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--gradient);
+      }
+
+      .mv-card h3 {
+        font-size: 1.15rem;
+        margin-bottom: 0.85rem;
+      }
+
+      .mv-card p {
+        margin: 0;
+        font-size: 0.95rem;
+      }
+
+      .process {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.9rem;
+        margin-top: 1.8rem;
+      }
+
+      .step {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 1.3rem 1.1rem;
+      }
+
+      .step .num {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        margin-bottom: 0.7rem;
+      }
+
+      .step h4 {
+        font-size: 1rem;
+        margin-bottom: 0.45rem;
+      }
+
+      .step p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--text-dim);
+      }
+
+      .shot {
+        width: 100%;
+        display: block;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+      }
+
+      figure {
+        margin: 0;
+      }
+
+      figcaption {
+        font-size: 0.78rem;
+        color: var(--text-dim);
+        margin-top: 0.6rem;
+      }
+
+      footer {
+        margin-top: 4.5rem;
+        padding-top: 1.6rem;
+        border-top: 1px solid var(--border);
+        font-size: 0.82rem;
+        color: var(--text-dim);
+        display: flex;
+        justify-content: space-between;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+      }
+
+      @media (max-width: 820px) {
+        .doc {
+          padding: 0 1.3rem 4rem;
+        }
+        .cover {
+          padding: 3rem 1.3rem;
+        }
+        .grid-2,
+        .grid-3,
+        .grid-4,
+        .grid-5,
+        .mv-grid,
+        .process {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @page {
+        size: A4;
+        margin: 0;
+      }
+
+      @media print {
+        html,
+        body {
+          background: var(--bg) !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+          font-size: 10.5pt;
+        }
+        .doc {
+          max-width: none;
+          padding: 0 14mm 14mm;
+        }
+        .cover {
+          min-height: 0;
+          height: 280mm;
+          padding: 16mm 14mm;
+          page-break-after: always;
+        }
+        .cover-bg {
+          opacity: 0.42;
+        }
+        section {
+          padding-top: 1.6rem;
+        }
+        .page-break {
+          page-break-before: always;
+        }
+        .card,
+        .mv-card,
+        .step,
+        figure,
+        table {
+          page-break-inside: avoid;
+        }
+        h2,
+        h3,
+        h4 {
+          page-break-after: avoid;
+        }
+        a {
+          color: #93c5fd !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ============ COVER ============ -->
+    <header class="cover">
+      <div class="cover-bg"></div>
+      <div class="cover-inner">
+        <div class="brandmark"><i class="dot"></i><span>Digi-Tech</span></div>
+        <p class="eyebrow">Company profile</p>
+        <h1>
+          Engineering digital products that
+          <span class="gradient-text">drive revenue, engagement, and scale</span>
+        </h1>
+        <p class="lede">
+          Digi-Tech is a product engineering studio. We design, build and hand over the systems
+          businesses run on — from customer-facing platforms to the operational software behind them.
+        </p>
+        <div class="cover-meta">
+          <div><span>Company</span><strong>Digi-Tech</strong></div>
+          <div><span>Focus</span><strong>Product engineering</strong></div>
+          <div><span>Website</span><strong>digital-tech.shop</strong></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="doc">
+      <!-- ============ WHO WE ARE ============ -->
+      <section id="who">
+        <p class="eyebrow">01 — Who we are</p>
+        <h2>A senior, hands-on engineering studio</h2>
+        <p class="section-lede">
+          Digi-Tech works with companies that have outgrown their first set of tools. Our work sits
+          where design, engineering and operations meet: the products customers use, the admin systems
+          that keep them honest, and the integrations that connect them to everything else.
+        </p>
+        <p class="section-lede">
+          We stay deliberately small. The people who scope your work are the people who build it —
+          no account layers, no black-box delivery, no handoff into a junior production line.
+        </p>
+        <div class="grid grid-5" style="margin-top: 1.8rem">
+          <div class="card">
+            <div class="metric gradient-text">Full-stack</div>
+            <p class="label">Web, mobile, APIs, databases and deployment under one team</p>
+          </div>
+          <div class="card">
+            <div class="metric gradient-text">Ops-first</div>
+            <p class="label">We build the admin and reporting layer, not just the pretty front end</p>
+          </div>
+          <div class="card">
+            <div class="metric gradient-text">Multi-tenant</div>
+            <p class="label">Many brands or markets on one platform, cleanly isolated</p>
+          </div>
+          <div class="card">
+            <div class="metric gradient-text">Multi-currency</div>
+            <p class="label">Production experience with USD/EGP pricing and staged revenue</p>
+          </div>
+          <div class="card">
+            <div class="metric gradient-text">Handover</div>
+            <p class="label">Documented, tested and transferable to your team by design</p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="rule" />
+
+      <!-- ============ MISSION & VISION ============ -->
+      <section id="mission-vision">
+        <p class="eyebrow">02 — Mission &amp; vision</p>
+        <h2>What we exist to do</h2>
+        <div class="mv-grid">
+          <div class="mv-card">
+            <span class="pill">Mission</span>
+            <h3 style="margin-top: 1rem">
+              Build digital systems that turn ambition into measurable business results
+            </h3>
+            <p>
+              We help organisations replace fragmented tools and manual process with software that
+              converts, retains and scales — owned by the client, understood by their team, and fit
+              for the way they actually operate.
+            </p>
+          </div>
+          <div class="mv-card">
+            <span class="pill purple">Vision</span>
+            <h3 style="margin-top: 1rem">
+              Become the engineering partner companies trust when the product has to perform
+            </h3>
+            <p>
+              We aim to be known for work that outlasts the engagement: clean architecture, honest
+              delivery and systems that keep earning after we leave — so clients return when the
+              next chapter of growth needs building.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="rule" />
+
+      <!-- ============ SPECIALISATION ============ -->
+      <section id="specialise">
+        <p class="eyebrow">03 — What we specialise in</p>
+        <h2>Five capabilities, one delivery team</h2>
+        <p class="section-lede">
+          We do not try to be everything. Our specialty is end-to-end product engineering — from the
+          interface people touch to the infrastructure that keeps it reliable.
+        </p>
+        <div class="grid grid-2" style="margin-top: 1.8rem">
+          <div class="card">
+            <span class="pill">Product engineering</span>
+            <h3 style="margin-top: 0.9rem">Web platforms</h3>
+            <p class="small">
+              Customer-facing applications built for conversion and speed — booking flows, catalogues,
+              checkout, dashboards and account areas — with design handled in-house rather than
+              subcontracted.
+            </p>
+          </div>
+          <div class="card">
+            <span class="pill purple">Mobile</span>
+            <h3 style="margin-top: 0.9rem">Applications</h3>
+            <p class="small">
+              Customer and operations apps sharing one API and one design language, so the phone
+              experience and the desktop experience never drift apart as features ship.
+            </p>
+          </div>
+          <div class="card">
+            <span class="pill green">Integration</span>
+            <h3 style="margin-top: 0.9rem">Systems &amp; data</h3>
+            <p class="small">
+              Making separate tools behave as one system: payment providers, carriers, catalogues,
+              accounting and internal databases — with clear ownership of data and failure modes.
+            </p>
+          </div>
+          <div class="card">
+            <span class="pill amber">Automation</span>
+            <h3 style="margin-top: 0.9rem">Workflow &amp; AI</h3>
+            <p class="small">
+              Removing repetitive human steps — classification, matching, reconciliation, alerting —
+              where the rules are clear enough to encode and the volume makes it worth doing.
+            </p>
+          </div>
+          <div class="card" style="grid-column: 1 / -1">
+            <span class="pill">Architecture</span>
+            <h3 style="margin-top: 0.9rem">Multi-tenancy</h3>
+            <p class="small" style="margin-bottom: 0">
+              One platform serving many isolated tenants — separate brands, markets, franchises or
+              partner accounts on shared infrastructure, with data, permissions, branding and
+              reporting kept cleanly separated. Designed into the schema from day one, because
+              retrofitting tenant isolation later is one of the most expensive rewrites a company can
+              face.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="rule page-break" />
+
+      <!-- ============ HOW WE WORK ============ -->
+      <section id="process">
+        <p class="eyebrow">04 — How we work</p>
+        <h2>Discovery to handover, without black boxes</h2>
+        <p class="section-lede">
+          Every engagement follows the same discipline: understand before building, show working
+          software every week, and leave the client able to run what we shipped.
+        </p>
+        <div class="process">
+          <div class="step">
+            <span class="num">01</span>
+            <h4>Discovery &amp; strategy</h4>
+            <p>Goals, audience, brand direction and technical scope — written down, not assumed.</p>
+          </div>
+          <div class="step">
+            <span class="num">02</span>
+            <h4>UI/UX &amp; prototype</h4>
+            <p>A modern visual direction and interactive journey the client can react to early.</p>
+          </div>
+          <div class="step">
+            <span class="num">03</span>
+            <h4>Build &amp; integrate</h4>
+            <p>Production-grade frontend and backend, tested, in the client's own repository.</p>
+          </div>
+          <div class="step">
+            <span class="num">04</span>
+            <h4>Launch &amp; support</h4>
+            <p>Deploy, document, hand over — with a clear path for the client's team to continue.</p>
+          </div>
+        </div>
+        <div class="grid grid-4" style="margin-top: 1.4rem">
+          <div class="card">
+            <h4>Weekly demos</h4>
+            <p class="small">Working software every week. If there is nothing to show, we say so.</p>
+          </div>
+          <div class="card">
+            <h4>Your repository</h4>
+            <p class="small">Commits land in your GitHub from day one. Review anything, any time.</p>
+          </div>
+          <div class="card">
+            <h4>Direct access</h4>
+            <p class="small">You talk to the engineers doing the work — not a relay of account managers.</p>
+          </div>
+          <div class="card">
+            <h4>Written decisions</h4>
+            <p class="small">Architectural choices are documented with their trade-offs for future teams.</p>
+          </div>
+        </div>
+
+      <hr class="rule page-break" />
+
+      <!-- ============ SELECTED WORK ============ -->
+      <section id="work">
+        <p class="eyebrow">05 — Selected work</p>
+        <h2>Systems we have shipped</h2>
+        <p class="section-lede">
+          A sample of live and production work. More detail is always available under NDA.
+        </p>
+
+        <div class="grid grid-3" style="margin-top: 1.9rem">
+          <div class="card">
+            <span class="pill green">Live</span>
+            <h3 style="margin-top: 0.9rem">El Fayrouz Travel</h3>
+            <p class="small">
+              Booking and trip management for an Egyptian tourism operator — itineraries, availability,
+              customer records and reservations in one system.
+            </p>
+            <p class="small" style="margin-bottom: 0">
+              <a href="https://app.elfayrouz-traveleg.com/" target="_blank" rel="noreferrer"
+                >app.elfayrouz-traveleg.com →</a
+              >
+            </p>
+          </div>
+          <div class="card">
+            <span class="pill green">Live</span>
+            <h3 style="margin-top: 0.9rem">Digital Vet</h3>
+            <p class="small">
+              A veterinary / AgriTech platform covering clinical reference, appointments and client
+              communication — a domain where data structure matters more than styling.
+            </p>
+            <p class="small" style="margin-bottom: 0">
+              <a href="https://digital-vet.com/" target="_blank" rel="noreferrer">digital-vet.com →</a>
+            </p>
+          </div>
+          <div class="card">
+            <span class="pill green">Live</span>
+            <h3 style="margin-top: 0.9rem">Akalat</h3>
+            <p class="small">
+              A two-sided marketplace connecting Egyptian home chefs with customers — storefronts,
+              menus, ordering and fulfilment.
+            </p>
+            <p class="small" style="margin-bottom: 0">
+              <a href="https://www.f6s.com/company/akalat-eg" target="_blank" rel="noreferrer"
+                >f6s.com/company/akalat-eg →</a
+              >
+            </p>
+          </div>
+        </div>
+
+        <figure style="margin-top: 1.9rem">
+          <img
+            class="shot"
+            src="../lynks/assets/invoicing-dashboard.png"
+            alt="Invoicing and revenue dashboard interface"
+          />
+          <figcaption>
+            <strong>Invoicing &amp; revenue system</strong> — in production. Project and milestone
+            tracking, multi-currency contracts, change requests with deposits, and staged revenue
+            recognition.
+          </figcaption>
+        </figure>
+
+        <figure style="margin-top: 1.9rem">
+          <img
+            class="shot"
+            src="../lynks/assets/mobile-apps-mockup.png"
+            alt="Mobile application interface screens"
+          />
+          <figcaption>
+            <strong>Mobile applications</strong> — customer dashboard, order tracking timeline and
+            account management, built against the same API layer as the web product.
+          </figcaption>
+        </figure>
+      </section>
+
+      <hr class="rule" />
+
+      <!-- ============ INDUSTRIES ============ -->
+      <section id="industries">
+        <p class="eyebrow">06 — Domains we know</p>
+        <h2>Where our work has shipped</h2>
+        <p class="section-lede">
+          We are not industry-locked, but we have real production experience in domains where data
+          structure, money and operations matter as much as the interface.
+        </p>
+        <div class="grid grid-3" style="margin-top: 1.8rem">
+          <div class="card">
+            <h4>Travel &amp; tourism</h4>
+            <p class="small">Booking platforms, itineraries, availability and reservation operations.</p>
+          </div>
+          <div class="card">
+            <h4>Health &amp; AgriTech</h4>
+            <p class="small">Clinical knowledge tools and practice systems where history and accuracy matter.</p>
+          </div>
+          <div class="card">
+            <h4>FinOps &amp; SaaS</h4>
+            <p class="small">Invoicing, multi-currency contracts, milestones and revenue recognition.</p>
+          </div>
+          <div class="card">
+            <h4>Marketplace &amp; commerce</h4>
+            <p class="small">Two-sided platforms: suppliers, storefronts, ordering and fulfilment flows.</p>
+          </div>
+          <div class="card">
+            <h4>Mobile products</h4>
+            <p class="small">Customer dashboards, order tracking and account experiences on device.</p>
+          </div>
+          <div class="card">
+            <h4>Operations software</h4>
+            <p class="small">Internal dashboards that cut manual work and make the status of work visible.</p>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ============ WHY US ============ -->
+      <section id="why">
+        <p class="eyebrow">07 — Why Digi-Tech</p>
+        <h2>What clients can count on</h2>
+        <div class="grid grid-2" style="margin-top: 1.8rem">
+          <div class="card">
+            <h4>You own everything</h4>
+            <p class="small">
+              Source code, documentation and designs are yours. Delivered into your repository and
+              your infrastructure — no proprietary lock-in, no licence tied to us.
+            </p>
+          </div>
+          <div class="card">
+            <h4>Mainstream stack</h4>
+            <p class="small">
+              We build on technologies any competent engineer can pick up — so the work survives
+              beyond the engagement and does not depend on a single vendor or exotic framework.
+            </p>
+          </div>
+          <div class="card">
+            <h4>Business outcomes first</h4>
+            <p class="small">
+              Interfaces matter, but so do unit economics, operations hours and whether the system
+              still runs when we are gone. We design for all three.
+            </p>
+          </div>
+          <div class="card">
+            <h4>Honest scope</h4>
+            <p class="small">
+              We would rather shrink a promise than inflate a timeline. What we commit to ship is
+              what we intend to put into production — documented, handed over and reviewable.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="rule" />
+
+      <!-- ============ CONTACT ============ -->
+      <section id="contact">
+        <p class="eyebrow">08 — Contact</p>
+        <h2>Let's talk about what you need to build</h2>
+        <p class="section-lede">
+          Whether you need a new product, a systems overhaul, or a partner who can take a messy
+          operation and turn it into software your team can run — we are ready for a serious
+          conversation.
+        </p>
+        <div class="grid grid-2" style="margin-top: 1.8rem">
+          <div class="card">
+            <h4>Website</h4>
+            <p class="small" style="margin-bottom: 0">
+              <a href="https://digital-tech.shop" target="_blank" rel="noreferrer">digital-tech.shop</a>
+            </p>
+          </div>
+          <div class="card">
+            <h4>Email</h4>
+            <p class="small" style="margin-bottom: 0">
+              <a href="mailto:engineering@digital-tech.shop">engineering@digital-tech.shop</a>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <div><strong>Digi-Tech</strong> · Company Profile · 2026</div>
+        <div><a href="https://digital-tech.shop">digital-tech.shop</a></div>
+      </footer>
+    </div>
+  </body>
+</html>

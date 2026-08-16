@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Digi-Tech × Lynks — Presentation</title>
+    <link rel="stylesheet" href="assets/brand.css" />
+    <style>
+      body {
+        overflow: hidden;
+      }
+
+      .deck {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      .slide {
+        position: absolute;
+        inset: 0;
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        padding: 5vh 7vw;
+        overflow: hidden;
+      }
+
+      .slide.active {
+        display: flex;
+        animation: rise 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      .slide > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      h1 {
+        font-size: clamp(2rem, 4.4vw, 4.1rem);
+        max-width: 28ch;
+      }
+
+      h2 {
+        font-size: clamp(1.5rem, 2.9vw, 2.7rem);
+        max-width: 30ch;
+      }
+
+      h3 {
+        font-size: clamp(1rem, 1.35vw, 1.35rem);
+      }
+
+      .slide p.lede {
+        font-size: clamp(0.95rem, 1.3vw, 1.3rem);
+        max-width: 62ch;
+      }
+
+      .slide .small,
+      .slide .label {
+        font-size: clamp(0.72rem, 0.92vw, 0.95rem);
+        line-height: 1.5;
+      }
+
+      .slide .card {
+        padding: clamp(0.9rem, 1.5vw, 1.6rem);
+      }
+
+      .slide .metric {
+        font-size: clamp(1.4rem, 2.4vw, 2.4rem);
+      }
+
+      /* Five across is tight: shrink so the longest labels stay on one line and
+         the descriptions below them align. */
+      .slide .grid-5 .metric {
+        font-size: clamp(0.9rem, 1.4vw, 1.4rem);
+      }
+
+      /* cover */
+      .cover-art {
+        position: absolute;
+        inset: 0;
+        background: url("assets/cover-abstract.png") center / cover no-repeat;
+        opacity: 0.55;
+        z-index: 0;
+      }
+
+      .cover-art::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, var(--bg) 10%, rgba(8, 10, 16, 0.7) 58%, rgba(8, 10, 16, 0.3) 100%);
+      }
+
+      .brandmark {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        margin-bottom: 4vh;
+      }
+
+      .brandmark .dot {
+        width: 2.2rem;
+        height: 2.2rem;
+        border-radius: 0.62rem;
+        background: var(--gradient);
+        flex: none;
+      }
+
+      .brandmark span {
+        font-weight: 700;
+        font-size: 1.15rem;
+        color: var(--text-bright);
+      }
+
+      .cover-meta {
+        margin-top: 5vh;
+        display: flex;
+        gap: 3.2rem;
+        flex-wrap: wrap;
+        padding-top: 1.4rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .cover-meta span {
+        display: block;
+        font-size: 0.68rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        margin-bottom: 0.25rem;
+      }
+
+      /* media slides reuse .slide positioning but lay out as two columns */
+      .slide.media.active {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4vw;
+        align-items: center;
+      }
+
+      .slide.media img {
+        width: 100%;
+        border-radius: 0.9rem;
+        border: 1px solid var(--border);
+        box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+      }
+
+      .full-media img {
+        width: 100%;
+        max-height: 56vh;
+        object-fit: cover;
+        border-radius: 0.9rem;
+        border: 1px solid var(--border);
+        margin-top: 2.5vh;
+      }
+
+      /* pipeline */
+      .pipeline {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 0.6rem;
+        margin-top: 3vh;
+      }
+
+      .stage {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 0.8rem;
+        padding: clamp(0.7rem, 1.1vw, 1.1rem);
+      }
+
+      .stage b {
+        display: block;
+        color: var(--text-bright);
+        font-size: clamp(0.78rem, 1vw, 1.02rem);
+        margin-bottom: 0.35rem;
+      }
+
+      .stage i {
+        font-style: normal;
+        display: block;
+        color: var(--text-dim);
+        font-size: clamp(0.64rem, 0.8vw, 0.82rem);
+        line-height: 1.4;
+      }
+
+      .stage.risk {
+        border-color: rgba(245, 158, 11, 0.5);
+        background: rgba(245, 158, 11, 0.05);
+      }
+
+      .stage.risk b {
+        color: #fde68a;
+      }
+
+      /* phases */
+      .phases {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.2rem;
+        margin-top: 3vh;
+      }
+
+      .phase-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: clamp(1rem, 1.6vw, 1.7rem);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .phase-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--gradient);
+      }
+
+      .phase-card .when {
+        font-size: 0.7rem;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        margin-bottom: 0.5rem;
+      }
+
+      /* chrome */
+      .chrome {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.8rem 1.6rem;
+        font-size: 0.78rem;
+        color: var(--text-dim);
+        background: linear-gradient(180deg, transparent, rgba(8, 10, 16, 0.85));
+      }
+
+      .progress {
+        flex: 1;
+        height: 2px;
+        background: var(--border);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+
+      .progress i {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: var(--gradient);
+        transition: width 0.3s ease;
+      }
+
+      .nav-btn {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 0.5rem;
+        padding: 0.3rem 0.65rem;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.78rem;
+      }
+
+      .nav-btn:hover {
+        border-color: var(--blue);
+        color: var(--text-bright);
+      }
+
+      .counter {
+        font-variant-numeric: tabular-nums;
+        min-width: 4.5rem;
+        text-align: right;
+      }
+
+      .hint {
+        position: fixed;
+        top: 1.2rem;
+        right: 1.6rem;
+        z-index: 20;
+        font-size: 0.72rem;
+        color: var(--text-dim);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0.35rem 0.8rem;
+        transition: opacity 0.6s ease 3.5s;
+      }
+
+      .hint.fade {
+        opacity: 0;
+      }
+
+      @media (max-width: 900px) {
+        .slide.media.active { grid-template-columns: 1fr; }
+        .pipeline { grid-template-columns: repeat(2, 1fr); }
+        .phases { grid-template-columns: 1fr; }
+        .grid-5, .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr 1fr; }
+      }
+
+      /* Printing reveals every slide and gives each one its own 16:9 page,
+         since on screen only the active slide is in flow. */
+      @media print {
+        @page {
+          size: 297mm 167mm;
+          margin: 0;
+        }
+
+        html,
+        body {
+          overflow: visible;
+          background: var(--bg) !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .deck {
+          width: auto;
+          height: auto;
+        }
+
+        .slide {
+          display: flex !important;
+          position: relative;
+          inset: auto;
+          width: 297mm;
+          height: 167mm;
+          overflow: hidden;
+          animation: none !important;
+          break-after: page;
+          page-break-after: always;
+        }
+
+        .slide.media {
+          display: grid !important;
+        }
+
+        .slide:last-child {
+          break-after: auto;
+          page-break-after: auto;
+        }
+
+        .chrome,
+        .hint {
+          display: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="deck" id="deck">
+      <!-- 1 · cover -->
+      <section class="slide active">
+        <div class="cover-art"></div>
+        <div class="brandmark"><i class="dot"></i><span>Digi-Tech</span></div>
+        <p class="eyebrow">Systems engineering proposal</p>
+        <h1>Turning cross-border complexity into <span class="gradient-text">one system you control</span></h1>
+        <p class="lede">
+          A three-month engagement to map, architect and build the operational backbone behind Lynks.
+        </p>
+        <div class="cover-meta">
+          <div><span>Prepared for</span><strong>Lynks.com</strong></div>
+          <div><span>Engagement</span><strong>3 months</strong></div>
+          <div><span>Prepared by</span><strong>Digi-Tech</strong></div>
+        </div>
+      </section>
+
+      <!-- 2 · the premise -->
+      <section class="slide">
+        <p class="eyebrow">The premise</p>
+        <h2>You have already solved the hard commercial problem</h2>
+        <p class="lede">
+          Getting products people want from three foreign markets to Egyptian customers at a price
+          that works — that part is done. What limits businesses at this stage is rarely demand.
+        </p>
+        <p class="lede">
+          It is how much of the operation still depends on manual coordination that
+          <strong>cannot scale</strong> and <strong>cannot be measured</strong>.
+        </p>
+      </section>
+
+      <!-- 3 · who we are -->
+      <section class="slide">
+        <p class="eyebrow">Who we are</p>
+        <h2>Digi-Tech builds the systems businesses run on</h2>
+        <p class="lede">
+          A senior, hands-on product engineering studio. The people who scope your work are the
+          people who build it.
+        </p>
+        <div class="grid grid-5" style="margin-top: 3vh">
+          <div class="card">
+            <div class="metric gradient-text">Full-stack</div>
+            <p class="label">Web, mobile, APIs and deployment in one team</p>
+          </div>
+          <div class="card">
+            <div class="metric gradient-text">Ops-first</div>
+            <p class="label">We build the admin layer, not just the front end</p>
+          </div>
+          <div class="card">
+            <div class="metric gradient-text">Multi-tenant</div>
+            <p class="label">Many brands or markets on one platform, cleanly isolated</p>
+          </div>
+          <div class="card">
+            <div class="metric gradient-text">Multi-currency</div>
+            <p class="label">Production USD/EGP pricing and revenue recognition</p>
+          </div>
+          <div class="card">
+            <div class="metric gradient-text">Handover</div>
+            <p class="label">Documented and transferable by design</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4 · live work -->
+      <section class="slide">
+        <p class="eyebrow">Selected work</p>
+        <h2>Live systems you can open right now</h2>
+        <div class="grid grid-3" style="margin-top: 3vh">
+          <div class="card">
+            <span class="pill green">Live</span>
+            <h3 style="margin-top: 1rem">El Fayrouz Travel</h3>
+            <p class="small">
+              Booking and trip management for an Egyptian tourism operator — itineraries,
+              availability, customer records and reservations in one system.
+            </p>
+            <p class="small" style="margin-bottom: 0">app.elfayrouz-traveleg.com</p>
+          </div>
+          <div class="card">
+            <span class="pill green">Live</span>
+            <h3 style="margin-top: 1rem">Digital Vet</h3>
+            <p class="small">
+              A veterinary practice platform — appointments, animal medical history and client
+              communication. A domain where data structure matters more than styling.
+            </p>
+            <p class="small" style="margin-bottom: 0">digital-vet.com</p>
+          </div>
+          <div class="card">
+            <span class="pill green">Live</span>
+            <h3 style="margin-top: 1rem">Akalat</h3>
+            <p class="small">
+              A two-sided marketplace connecting Egyptian home chefs with customers — storefronts,
+              menus, ordering and fulfilment.
+            </p>
+            <p class="small" style="margin-bottom: 0">
+              <strong>Closest to your model:</strong> many independent suppliers, one order flow, one
+              delivery promise.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5 · invoicing -->
+      <section class="slide media">
+        <div>
+          <p class="eyebrow">Selected work · in production</p>
+          <h2>Invoicing &amp; revenue system</h2>
+          <p class="small">
+            Project and milestone tracking, multi-currency contracts in USD and EGP, change requests
+            with deposits, and staged revenue recognition — so a signed contract counts as earned only
+            when the work behind it is delivered.
+          </p>
+          <p class="small">
+            <strong>Why it matters to you:</strong> buying in one currency and selling in another,
+            with money recognised across stages, is the same class of problem as your pipeline.
+          </p>
+        </div>
+        <img src="assets/invoicing-dashboard.png" alt="Invoicing and revenue dashboard" />
+      </section>
+
+      <!-- 6 · mobile -->
+      <section class="slide media">
+        <img src="assets/mobile-apps-mockup.png" alt="Mobile application screens" />
+        <div>
+          <p class="eyebrow">Selected work · pre-launch</p>
+          <h2>Mobile applications</h2>
+          <p class="small">
+            Customer dashboard, order tracking timeline and account management — built against the
+            same API layer as the web product, so the two never drift apart as features ship.
+          </p>
+          <p class="small">
+            <strong>Why it matters to you:</strong> an order tracking timeline is exactly what removes
+            "where is my parcel?" from your support queue.
+          </p>
+        </div>
+      </section>
+
+      <!-- 7 · lynks flow -->
+      <section class="slide full-media">
+        <p class="eyebrow">What we see at Lynks</p>
+        <h2>Three source markets, one destination, many points of failure between</h2>
+        <img src="assets/cross-border-flow.png" alt="Cross-border order flow" />
+      </section>
+
+      <!-- 8 · lifecycle -->
+      <section class="slide">
+        <p class="eyebrow">The order lifecycle</p>
+        <h2>A single order is a chain of transactions, each able to fail alone</h2>
+        <div class="pipeline">
+          <div class="stage"><b>Discovery</b><i>Customer finds a product abroad</i></div>
+          <div class="stage risk"><b>Quote</b><i>Price promised before true cost is known</i></div>
+          <div class="stage"><b>Procure</b><i>Purchase placed with merchant</i></div>
+          <div class="stage risk"><b>Consolidate</b><i>Parcels matched to orders at hub</i></div>
+          <div class="stage risk"><b>Clear</b><i>International leg and customs</i></div>
+          <div class="stage"><b>Deliver</b><i>Last mile and reconciliation</i></div>
+        </div>
+        <p class="small muted" style="margin-top: 2.5vh">
+          Amber stages are where margin and trust are usually lost — decisions made on estimates, or
+          on a human correctly matching one thing to another.
+        </p>
+      </section>
+
+      <!-- 9 · opportunities -->
+      <section class="slide">
+        <p class="eyebrow">Where software pays for itself fastest</p>
+        <h2>Six candidates — you tell us which one hurts most</h2>
+        <div class="grid grid-3" style="margin-top: 3vh">
+          <div class="card">
+            <h3>Landed-cost engine</h3>
+            <p class="small">True final price at checkout: duty, weight, VAT, FX spread and margin in one service.</p>
+          </div>
+          <div class="card">
+            <h3>Order orchestration</h3>
+            <p class="small">One state machine per order, so anything stuck is visible by definition.</p>
+          </div>
+          <div class="card">
+            <h3>Parcel matching</h3>
+            <p class="small">Automated inbound reconciliation with an exception queue for real edge cases.</p>
+          </div>
+          <div class="card">
+            <h3>Unit economics</h3>
+            <p class="small">Profit per order after real shipping, duty and FX — not blended averages.</p>
+          </div>
+          <div class="card">
+            <h3>Status transparency</h3>
+            <p class="small">Proactive tracking that removes support contacts instead of absorbing them.</p>
+          </div>
+          <div class="card">
+            <h3>Catalogue sync</h3>
+            <p class="small">Detecting merchant price drift between quote and purchase.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 10 · phases -->
+      <section class="slide">
+        <p class="eyebrow">How the three months work</p>
+        <h2>Audit, build, hand over</h2>
+        <div class="phases">
+          <div class="phase-card">
+            <p class="when">Month 1 · weeks 1–4</p>
+            <h3>Systems audit &amp; blueprint</h3>
+            <ul class="ticks small" style="margin-top: 0.8rem">
+              <li>End-to-end process and data map</li>
+              <li>Target architecture and integration plan</li>
+              <li>Backlog ranked by return, not ease</li>
+              <li>Agreed success metrics</li>
+            </ul>
+            <p style="margin: 1rem 0 0"><span class="pill">Decision gate</span></p>
+          </div>
+          <div class="phase-card">
+            <p class="when">Month 2 · weeks 5–8</p>
+            <h3>Build the priority module</h3>
+            <ul class="ticks small" style="margin-top: 0.8rem">
+              <li>Production-grade code with tests</li>
+              <li>Deployed to staging you can use</li>
+              <li>Weekly demos of working software</li>
+              <li>Committed to your repository</li>
+            </ul>
+          </div>
+          <div class="phase-card">
+            <p class="when">Month 3 · weeks 9–12</p>
+            <h3>Integrate &amp; hand over</h3>
+            <ul class="ticks small" style="margin-top: 0.8rem">
+              <li>Production cutover support</li>
+              <li>Ops dashboard for non-technical staff</li>
+              <li>Docs and recorded walkthroughs</li>
+              <li>30 days post-handover support</li>
+            </ul>
+          </div>
+        </div>
+        <p class="small muted" style="margin-top: 2.5vh">
+          The three months end cleanly. If the work proves itself and you want more, we agree the
+          next scope then — based on what you have seen, not on what we promised.
+        </p>
+      </section>
+
+      <!-- 11 · price -->
+      <section class="slide">
+        <p class="eyebrow">Terms of engagement</p>
+        <h2>How this would work between us</h2>
+        <div class="grid grid-2" style="margin-top: 3vh; align-items: center">
+          <div>
+            <p class="lede">
+              You will notice there are no numbers in this deck. That is deliberate — we would rather
+              agree what is worth building first, then talk about investment.
+            </p>
+            <p class="small muted">
+              Quoting before that conversation is guesswork dressed as precision. The terms that
+              matter are the same whatever the figure turns out to be.
+            </p>
+          </div>
+          <div class="grid" style="gap: 0.9rem">
+            <div class="card">
+              <h3>You own everything</h3>
+              <p class="small">Code, docs and designs are yours, delivered into your repository as we go.</p>
+            </div>
+            <div class="card">
+              <h3>Exit at any month</h3>
+              <p class="small">Written notice, no penalty. You keep everything delivered.</p>
+            </div>
+            <div class="card">
+              <h3>After month three</h3>
+              <p class="small">Nothing renews automatically. Continue only if we earned it.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 12 · next steps -->
+      <section class="slide">
+        <div class="cover-art" style="opacity: 0.32"></div>
+        <p class="eyebrow">Next steps</p>
+        <h2>Three things, this week</h2>
+        <div class="grid grid-3" style="margin-top: 3vh">
+          <div class="card">
+            <div class="metric gradient-text">01</div>
+            <h3 style="margin-top: 0.7rem">Half-day discovery</h3>
+            <p class="small">
+              A working session with your ops and engineering leads to pressure-test our lifecycle
+              map. No charge, no commitment.
+            </p>
+          </div>
+          <div class="card">
+            <div class="metric gradient-text">02</div>
+            <h3 style="margin-top: 0.7rem">Confirm the first module</h3>
+            <p class="small">
+              We name what we would build in month two; you tell us if that is where the pain
+              actually is.
+            </p>
+          </div>
+          <div class="card">
+            <div class="metric gradient-text">03</div>
+            <h3 style="margin-top: 0.7rem">Start month one</h3>
+            <p class="small">
+              Agreement signed, repository access granted. Blueprint delivered four weeks later.
+            </p>
+          </div>
+        </div>
+        <p class="lede" style="margin-top: 4vh">
+          <strong>Digi-Tech</strong> · digital-tech.shop ·
+          <a href="mailto:engineering@digital-tech.shop">engineering@digital-tech.shop</a>
+        </p>
+      </section>
+    </div>
+
+    <div class="hint" id="hint">← → to navigate · F for fullscreen</div>
+
+    <div class="chrome">
+      <button class="nav-btn" id="prev" aria-label="Previous slide">←</button>
+      <button class="nav-btn" id="next" aria-label="Next slide">→</button>
+      <div class="progress"><i id="bar"></i></div>
+      <div class="counter"><span id="cur">1</span> / <span id="total">1</span></div>
+    </div>
+
+    <script>
+      (function () {
+        var slides = Array.prototype.slice.call(document.querySelectorAll("#deck > section"));
+        var index = 0;
+        var bar = document.getElementById("bar");
+        var cur = document.getElementById("cur");
+        document.getElementById("total").textContent = String(slides.length);
+
+        function show(next) {
+          index = Math.max(0, Math.min(slides.length - 1, next));
+          slides.forEach(function (slide, i) {
+            slide.classList.toggle("active", i === index);
+          });
+          cur.textContent = String(index + 1);
+          bar.style.width = ((index + 1) / slides.length) * 100 + "%";
+          if (location.hash !== "#" + (index + 1)) {
+            history.replaceState(null, "", "#" + (index + 1));
+          }
+        }
+
+        document.addEventListener("keydown", function (event) {
+          var key = event.key;
+          if (key === "ArrowRight" || key === "PageDown" || key === " " || key === "Enter") {
+            event.preventDefault();
+            show(index + 1);
+          } else if (key === "ArrowLeft" || key === "PageUp" || key === "Backspace") {
+            event.preventDefault();
+            show(index - 1);
+          } else if (key === "Home") {
+            show(0);
+          } else if (key === "End") {
+            show(slides.length - 1);
+          } else if (key === "f" || key === "F") {
+            if (document.fullscreenElement) document.exitFullscreen();
+            else document.documentElement.requestFullscreen();
+          }
+        });
+
+        document.getElementById("next").addEventListener("click", function () {
+          show(index + 1);
+        });
+        document.getElementById("prev").addEventListener("click", function () {
+          show(index - 1);
+        });
+
+        var startX = null;
+        document.addEventListener("touchstart", function (e) {
+          startX = e.touches[0].clientX;
+        }, { passive: true });
+        document.addEventListener("touchend", function (e) {
+          if (startX === null) return;
+          var dx = e.changedTouches[0].clientX - startX;
+          if (Math.abs(dx) > 55) show(index + (dx < 0 ? 1 : -1));
+          startX = null;
+        }, { passive: true });
+
+        var fromHash = parseInt((location.hash || "").replace("#", ""), 10);
+        show(isNaN(fromHash) ? 0 : fromHash - 1);
+
+        setTimeout(function () {
+          document.getElementById("hint").classList.add("fade");
+        }, 100);
+      })();
+    </script>
+  </body>
+</html>
