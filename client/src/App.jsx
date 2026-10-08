@@ -6,6 +6,7 @@ import {
   Code2,
   Compass,
   Cpu,
+  CloudSync,
   ExternalLink,
   Layout,
   Lock,
@@ -591,6 +592,13 @@ const PublicWebsite = () => {
       title: "Digital Transformation",
       description:
         "Internal dashboards and process systems that reduce manual work and improve operational visibility.",
+      accent: "slate",
+    },
+    {
+      icon: CloudSync,
+      title: "Clould Services",
+      description:
+        "Secure, scalable, and reliable cloud solutions to help businesses modernize applications, optimize infrastructure, and accelerate digital transformation across leading cloud platforms.",
       accent: "slate",
     },
   ];
