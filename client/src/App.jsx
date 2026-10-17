@@ -596,7 +596,7 @@ const PublicWebsite = () => {
     },
     {
       icon: CloudSync,
-      title: "Clould Services",
+      title: "Cloud Services",
       description:
         "Secure, scalable, and reliable cloud solutions to help businesses modernize applications, optimize infrastructure, and accelerate digital transformation across leading cloud platforms.",
       accent: "slate",
